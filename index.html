@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KAB Welfare — Association Welfare & Loan Manager</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#f4f6f5;--card:#fff;--ink:#1d2b28;--mute:#61716d;--line:#dfe6e3;--pri:#0f6b5c;--pri2:#e3f1ee;--warn:#b26a00;--warn2:#fff4e0;--bad:#b3261e;--bad2:#fdecea;--ok:#1e7d32;--ok2:#e7f5e9;--r:10px}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+#app{display:flex;min-height:100vh}
+#side{width:230px;background:#0c3f37;color:#dceee9;padding:16px 12px;flex-shrink:0;display:flex;flex-direction:column;gap:14px}
+#side .brand{font-weight:700;font-size:17px;color:#fff;letter-spacing:.3px}
+#side .brand small{display:block;font-weight:400;font-size:11px;color:#9fc9bf}
+#side select{width:100%;padding:7px;border-radius:7px;border:0;font:inherit}
+#side nav a{display:block;padding:8px 10px;border-radius:7px;color:#dceee9;text-decoration:none;margin-bottom:2px}
+#side nav a:hover{background:#13544a}#side nav a.on{background:#1b6d60;color:#fff;font-weight:600}
+#side .lbl{font-size:11px;text-transform:uppercase;color:#8fbab0;margin-bottom:4px;letter-spacing:.5px}
+#side .btn{background:#1b6d60;color:#fff;width:100%}
+main{flex:1;min-width:0;padding:20px 26px 60px}
+#top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+#top h1{font-size:20px;margin:0;flex:1}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:16px}
+.card h2{font-size:15px;margin:0 0 10px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+.kpi .k{font-size:12px;color:var(--mute)}.kpi .v{font-size:20px;font-weight:700;margin-top:2px}.kpi .s{font-size:11px;color:var(--mute)}
+table{width:100%;border-collapse:collapse}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--mute);font-weight:600;background:#fafcfb}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.click{cursor:pointer}tr.click:hover td{background:#f6faf9}
+.tw{overflow-x:auto}
+.btn{display:inline-block;border:1px solid transparent;background:var(--pri);color:#fff;padding:7px 12px;border-radius:7px;font:inherit;cursor:pointer;text-decoration:none}
+.btn.sec{background:#fff;color:var(--pri);border-color:var(--pri)}
+.btn.sm{padding:3px 8px;font-size:12px}
+.btn.bad{background:var(--bad)}.btn.ghost{background:transparent;color:var(--mute);border-color:var(--line)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.badge{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.b-ok{background:var(--ok2);color:var(--ok)}.b-warn{background:var(--warn2);color:var(--warn)}.b-bad{background:var(--bad2);color:var(--bad)}.b-mute{background:#eef1f0;color:var(--mute)}.b-pri{background:var(--pri2);color:var(--pri)}
+.note{background:var(--warn2);border-left:3px solid var(--warn);padding:8px 12px;border-radius:6px;font-size:13px;margin-bottom:12px}
+.info{background:var(--pri2);border-left:3px solid var(--pri);padding:8px 12px;border-radius:6px;font-size:13px;margin-bottom:12px}
+.err{background:var(--bad2);border-left:3px solid var(--bad);padding:8px 12px;border-radius:6px;font-size:13px;margin:8px 0}
+.okbox{background:var(--ok2);border-left:3px solid var(--ok);padding:8px 12px;border-radius:6px;font-size:13px;margin:8px 0}
+.muted{color:var(--mute)}.small{font-size:12px}
+label.f{display:block;margin-bottom:10px;font-size:12px;color:var(--mute)}
+label.f input,label.f select,label.f textarea{display:block;width:100%;margin-top:3px;padding:7px 8px;border:1px solid var(--line);border-radius:7px;font:inherit;color:var(--ink);background:#fff}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:0 12px}
+input.cell{width:100%;min-width:60px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;font:inherit}
+input.cell.num{text-align:right;max-width:110px}
+#modal{position:fixed;inset:0;background:rgba(10,30,26,.45);display:flex;align-items:flex-start;justify-content:center;padding:40px 12px;overflow:auto;z-index:20}
+#modal.hidden{display:none}
+#modal .box{background:#fff;border-radius:12px;width:100%;max-width:620px;padding:18px 20px}
+#modal h3{margin:0 0 12px;font-size:17px}
+.gl{max-height:170px;overflow:auto;border:1px solid var(--line);border-radius:7px;padding:6px 8px;color:var(--ink)}
+.gl label{display:block;font-size:13px;padding:2px 0}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#173f38;color:#fff;padding:9px 16px;border-radius:8px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:30}
+#toast.show{opacity:1}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px}
+.tabs button{border:1px solid var(--line);background:#fff;padding:6px 12px;border-radius:20px;cursor:pointer;font:inherit}
+.tabs button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+textarea.code{width:100%;height:180px;font:12px monospace;border:1px solid var(--line);border-radius:7px;padding:8px}
+@media(max-width:820px){#app{flex-direction:column}#side{width:auto}#side nav{display:flex;flex-wrap:wrap;gap:4px}#side nav a{margin:0}main{padding:14px}.grid2,.grid3{grid-template-columns:1fr}}
+
+.hidden{display:none!important}
+#auth{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(160deg,#0c3f37,#13544a)}
+#auth .box{background:#fff;border-radius:14px;padding:26px 26px 20px;width:100%;max-width:400px}
+#auth h1{font-size:20px;margin:0 0 2px}#auth .sub{color:var(--mute);font-size:13px;margin-bottom:18px}
+#auth .links{display:flex;justify-content:space-between;margin-top:12px;font-size:13px}
+#auth a{color:var(--pri);cursor:pointer}
+#loading{min-height:100vh;display:flex;align-items:center;justify-content:center;color:var(--mute)}
+#side .me{font-size:12px;color:#bfe0d8;border-top:1px solid #1d5a50;padding-top:10px}
+#side .me b{color:#fff;display:block;word-break:break-all}
+body.ro main .btn:not(.ro-ok){display:none}
+.busy{opacity:.6;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="loading">Loading…</div>
+
+<div id="auth" class="hidden"><div class="box">
+  <h1>KAB Welfare</h1><div class="sub" id="authSub">Association Welfare &amp; Loan Manager</div>
+  <form id="authForm" autocomplete="on"></form>
+  <div id="authMsg"></div>
+  <div class="links" id="authLinks"></div>
+</div></div>
+
+<div id="app" class="hidden">
+  <aside id="side">
+    <div class="brand">KAB Welfare<small>Association Welfare &amp; Loan Manager</small></div>
+    <div id="tenantWrap"><div class="lbl">Association</div><select id="tenantSel"></select></div>
+    <nav id="nav"></nav>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px">
+      <button class="btn sm" id="newTenantBtn" style="width:100%;background:#1b6d60">+ New association</button>
+      <div class="me"><span id="meRole"></span><b id="meEmail"></b><a href="#" id="signOut" style="color:#9fd8ca">Sign out</a></div>
+    </div>
+  </aside>
+  <main>
+    <div id="top"></div>
+    <div id="view"></div>
+  </main>
+</div>
+<div id="modal" class="hidden"><div class="box"><form id="mForm" autocomplete="off">
+  <h3 id="mTitle"></h3><div id="mBody"></div><div id="mErr"></div>
+  <div class="row" style="justify-content:flex-end;margin-top:12px"><button type="button" class="btn ghost ro-ok" id="mCancel">Cancel</button><button class="btn ro-ok" id="mOk">Save</button></div>
+</form></div></div>
+<div id="toast"></div>
+
+<script>
+/* ================= CONFIG ================= */
+const SUPABASE_URL='https://gqggyeultrdwrrwyhzup.supabase.co';
+const SUPABASE_KEY='sb_publishable_5JcjMXVr7jQUJ_nRKh3_Bw_L_gfARD_';
+
+/* ================= helpers ================= */
+let sb;
+let ME={user:null,email:'',admin:false,roles:[],assocs:[]};
+let DB={current:null,tenants:{}};
+let VIEW={role:'exec',readonly:false,memberId:null,myMemberId:null,reportTab:'statement',reportMember:null,fy:null,payFilter:'',memberSearch:'',dir:[]};
+const TODAY=new Date();TODAY.setHours(0,0,0,0);
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=v=>{const n=parseFloat(v);return isFinite(n)?n:0};
+const r2=n=>Math.round(n*100)/100;
+const iso=d=>{const z=new Date(d);return z.getFullYear()+'-'+String(z.getMonth()+1).padStart(2,'0')+'-'+String(z.getDate()).padStart(2,'0')};
+const pd=s=>{if(!s)return null;const[a,b,c]=String(s).slice(0,10).split('-').map(Number);return new Date(a,b-1,c||1)};
+const mi=d=>d.getFullYear()*12+d.getMonth();
+const addM=(s,n)=>{const d=pd(s);const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return d};
+const fd=s=>s?pd(s).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';
+const sum=(a,f)=>a.reduce((t,x)=>t+num(f?f(x):x),0);
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const T=()=>DB.tenants[DB.current];
+const S=()=>T().settings;
+const money=n=>(S().currency||'GHS')+' '+num(n).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),3200)}
+const ROLE_LABEL={president:'President',vice_president:'Vice-President',secretary:'Secretary',treasurer:'Treasurer',financial_secretary:'Financial Secretary',dcrc:'DCRC',auditor:'Auditor',member:'Member',kab_admin:'KAB Tech admin'};
+const EXEC_ROLES=['president','vice_president','secretary','treasurer','financial_secretary','kab_admin'];
+const NOCASH=['Benefit offset','Opening balance'];          // not real money movement
+const NOINCOME=['Benefit offset','Opening balance','Opening cash']; // not income for the year
+function friendly(e){const m=(e&&(e.message||e.error_description||e.msg))||String(e);
+ if(/row-level security|permission denied|42501/i.test(m))return "Your role in this association doesn't allow that action.";
+ if(/duplicate key|23505/i.test(m))return 'That record already exists.';
+ if(/foreign key|23503/i.test(m))return 'This record is linked to other records, so it cannot be removed.';
+ if(/Failed to fetch|NetworkError|Load failed/i.test(m))return "Can't reach the server. Check your internet connection and try again.";
+ if(/Invalid login credentials/i.test(m))return 'Wrong email or password.';
+ if(/Email not confirmed/i.test(m))return 'Please open the confirmation link we emailed you first, then sign in.';
+ if(/rate limit/i.test(m))return 'Too many emails sent in a short time. Please wait a while and try again.';
+ if(/Password should be/i.test(m))return 'Password must be at least 6 characters.';
+ return m}
+async function q(p){const{data,error}=await p;if(error)throw error;return data}
+async function ins(t,row){const{data,error}=await sb.from(t).insert(row).select();if(error)throw error;if(!data||!data.length)throw new Error('permission denied');return Array.isArray(row)?data:data[0]}
+async function upd(t,id,patch,key){const{data,error}=await sb.from(t).update(patch).eq(key||'id',id).select();if(error)throw error;if(!data||!data.length)throw new Error('permission denied');return data[0]}
+async function delw(t,filters){let x=sb.from(t).delete();for(const[k,v]of Object.entries(filters))x=x.eq(k,v);const{data,error}=await x.select();if(error)throw error;if(!data||!data.length)throw new Error('permission denied')}
+function myRole(){const rs=ME.roles.filter(r=>r.association_id===DB.current).map(r=>r.role);if(ME.admin&&!rs.length)rs.push('kab_admin');return rs}
+function roleText(){return myRole().map(r=>ROLE_LABEL[r]||r).join(', ')||'—'}
+async function log(a){try{await sb.from('activity_log').insert({association_id:DB.current,user_id:ME.user.id,actor:ME.email+' ('+roleText()+')',action:a})}catch(e){}}
+async function reload(){DB.tenants[DB.current]=await loadTenant(DB.current)}
+async function act(fn,okMsg){document.body.classList.add('busy');try{await fn();await reload();render();if(okMsg)toast(okMsg)}catch(e){console.error(e);toast(friendly(e))}finally{document.body.classList.remove('busy')}}
+
+/* ================= load from Supabase ================= */
+async function loadTenant(aid){
+ const by=t=>sb.from(t).select('*').eq('association_id',aid);
+ const [as,lps,cats,rates,bts,ms,pays,cls,lns,exs,logs]=await Promise.all([
+  q(sb.from('associations').select('*').eq('id',aid)),q(by('loan_policies')),q(by('member_categories')),q(by('dues_rates')),
+  q(by('benefit_types')),q(by('members')),q(by('payments')),q(by('claims')),q(by('loans')),q(by('expenses')),
+  q(sb.from('activity_log').select('*').eq('association_id',aid).order('at',{ascending:false}).limit(400))]);
+ if(!as.length)throw new Error('This association could not be found, or you no longer have access to it.');
+ const btIds=bts.map(b=>b.id),lnIds=lns.map(l=>l.id);
+ const [amts,gs]=await Promise.all([btIds.length?q(sb.from('benefit_amounts').select('*').in('benefit_type_id',btIds)):[],lnIds.length?q(sb.from('loan_guarantors').select('*').in('loan_id',lnIds)):[]]);
+ const A=as[0],L=lps[0]||{};
+ const settings={name:A.name,shortCode:A.short_code||'',address:A.address||'',currency:A.currency||'GHS',fyStartMonth:A.fy_start_month,dueDay:A.due_day,regFee:num(A.reg_fee),penaltyPct:num(A.penalty_pct),arrearsFlagMonths:A.arrears_flag_months,waitingMonths:A.waiting_months,noticeDays:A.notice_days,benefitsActive:!!A.benefits_active,loansActive:!!A.loans_active,
+  loan:{poolPct:num(L.pool_pct??40),minMonths:num(L.min_months??6),multiple:num(L.multiple_of_dues??2),cap:num(L.flat_cap),emergencyFeePct:num(L.emergency_fee_pct),generalFeePct:num(L.general_fee_pct),maxMonths:num(L.max_months??6),guarantorThreshold:num(L.guarantor_threshold),guarantorsRequired:num(L.guarantors_required??2),defaultDays:num(L.default_days??60),maxGuarantees:num(L.max_guarantees??2),offsetFromBenefits:L.offset_from_benefits!==false}};
+ const categories=cats.map(c=>{const rs=rates.filter(r=>r.category_id===c.id).map(r=>({from:String(r.effective_from).slice(0,10),amt:num(r.monthly_amount)})).sort((x,y)=>x.from.localeCompare(y.from));
+  const cur=[...rs].reverse().find(r=>pd(r.from)<=TODAY)||rs[rs.length-1];return{id:c.id,name:c.name,rates:rs,dues:cur?cur.amt:0}}).sort((a,b)=>a.name.localeCompare(b.name));
+ const t={id:aid,settings,categories,
+  benefitTypes:bts.map(b=>({id:b.id,name:b.name,maxTimes:num(b.max_times),note:b.note||'',active:!!b.active,amounts:Object.fromEntries(amts.filter(x=>x.benefit_type_id===b.id).map(x=>[x.category_id,num(x.amount)]))})).sort((a,b)=>a.name.localeCompare(b.name)),
+  members:ms.map(m=>({id:m.id,memberNo:m.member_no,name:m.full_name,phone:m.phone||'',email:m.email||'',categoryId:m.category_id,joinDate:String(m.join_date).slice(0,10),status:m.status,exitDate:m.exit_date?String(m.exit_date).slice(0,10):'',nok:m.next_of_kin||'',nokPhone:m.next_of_kin_phone||'',notes:m.notes||'',userId:m.user_id})),
+  payments:pays.map(p=>({id:p.id,date:String(p.paid_on).slice(0,10),memberId:p.member_id||'',type:p.type,loanId:p.loan_id,amount:num(p.amount),channel:p.channel,ref:p.reference||'',note:p.note||'',period:p.period_month?String(p.period_month).slice(0,7):''})),
+  claims:cls.map(c=>({id:c.id,memberId:c.member_id,typeId:c.benefit_type_id,eventDate:String(c.event_date).slice(0,10),desc:c.details||'',amount:num(c.amount),status:c.status,created:c.created_on,approvedOn:c.approved_on,paidOn:c.paid_on?String(c.paid_on).slice(0,10):'',channel:c.channel||'',ref:c.reference||'',offset:num(c.loan_offset),override:c.override_reason||'',reject:c.reject_reason||''})),
+  loans:lns.map(l=>({id:l.id,memberId:l.member_id,kind:l.kind,principal:num(l.principal),feePct:num(l.fee_pct),fee:num(l.fee),total:num(l.total),months:num(l.months),guarantors:gs.filter(g=>g.loan_id===l.id).map(g=>g.member_id),consents:Object.fromEntries(gs.filter(g=>g.loan_id===l.id).map(g=>[g.member_id,g.consented])),purpose:l.purpose||'',applied:String(l.applied_on).slice(0,10),status:l.status,approvedOn:l.approved_on,disbursed:l.disbursed_on?String(l.disbursed_on).slice(0,10):'',channel:l.channel||'',ref:l.reference||'',override:l.override_reason||'',reject:l.reject_reason||''})),
+  expenses:exs.map(e=>({id:e.id,date:String(e.spent_on).slice(0,10),desc:e.description,amount:num(e.amount),category:e.category||''})),
+  audit:logs.map(x=>({t:x.at,who:x.actor||'',a:x.action}))};
+ if(VIEW.role==='member'){try{VIEW.dir=(await q(sb.rpc('member_directory',{a:aid})))||[]}catch(e){VIEW.dir=[]}}
+ return t}
+
+/* ================= rules engine ================= */
+const mem=id=>T().members.find(m=>m.id===id);
+const nameOf=id=>mem(id)?.name||(VIEW.dir.find(d=>d.id===id)||{}).full_name||'(member)';
+const cat=m=>T().categories.find(c=>c.id===m.categoryId)||{name:'?',dues:0,rates:[]};
+const btype=id=>T().benefitTypes.find(b=>b.id===id)||{name:'(deleted type)',amounts:{},maxTimes:0};
+function rateAt(c,m){for(let i=c.rates.length-1;i>=0;i--){if(mi(pd(c.rates[i].from))<=m)return c.rates[i].amt}return 0}
+function lastDueMI(){return mi(TODAY)-(TODAY.getDate()>=num(S().dueDay||1)?0:1)}
+function owedRange(m){const st=mi(pd(m.joinDate));let end=lastDueMI();if(m.status!=='active'&&m.exitDate)end=Math.min(end,mi(pd(m.exitDate)));return[st,end]}
+function monthsMember(m){return Math.max(0,mi(TODAY)-mi(pd(m.joinDate)))}
+function duesInfo(m){const c=cat(m),[st,end]=owedRange(m);let owed=0,months=0;for(let k=st;k<=end;k++){owed+=rateAt(c,k);months++}
+ const rate=num(c.dues);const paid=r2(sum(T().payments.filter(p=>p.memberId===m.id&&p.type==='dues'),p=>p.amount));
+ owed=r2(owed);const arrears=Math.max(0,r2(owed-paid)),credit=Math.max(0,r2(paid-owed));
+ return{rate,months,owed,paid,arrears,credit,arrearsMonths:rate?arrears/rate:0,penalty:r2(arrears*num(S().penaltyPct)/100)}}
+const goodStanding=m=>m.status==='active'&&duesInfo(m).arrears<=0.004;
+function benefitsReceived(m){return T().claims.filter(c=>c.memberId===m.id&&c.status==='paid').length}
+function cashBalance(){const t=T();
+ const inc=sum(t.payments.filter(p=>!NOCASH.includes(p.channel)),p=>p.amount);
+ const ben=sum(t.claims.filter(c=>c.status==='paid'&&!NOCASH.includes(c.channel)),c=>num(c.amount)-num(c.offset));
+ const lo=sum(t.loans.filter(l=>l.status==='approved'&&!NOCASH.includes(l.channel)),l=>l.principal);
+ return r2(inc-ben-lo-sum(t.expenses,e=>e.amount))}
+function loanInfo(l){const t=T();const paid=r2(sum(t.payments.filter(p=>p.type==='loan'&&p.loanId===l.id),p=>p.amount));
+ const out=Math.max(0,r2(l.total-paid));const inst=l.months?l.total/l.months:0;
+ const res={paid,out,inst,overdue:0,days:0,state:l.status,schedule:[],princOut:0};
+ if(l.status!=='approved'||!l.disbursed)return res;
+ let cum=0,first=null;
+ for(let i=1;i<=l.months;i++){const due=addM(l.disbursed,i);cum+=inst;res.schedule.push({n:i,due:iso(due),amt:inst,cum});if(due<=TODAY&&cum>paid+0.004&&!first)first=due}
+ const dueSoFar=Math.min(l.total,inst*res.schedule.filter(s=>pd(s.due)<=TODAY).length);
+ res.overdue=Math.max(0,r2(dueSoFar-paid));res.days=first?Math.floor((TODAY-first)/864e5):0;
+ res.princOut=l.total?r2(out*l.principal/l.total):0;
+ res.state=out<=0.004?'repaid':(res.days>num(S().loan.defaultDays)?'default':(res.overdue>0?'overdue':'active'));
+ return res}
+function openLoans(){return T().loans.filter(l=>l.status==='pending'||(l.status==='approved'&&loanInfo(l).state!=='repaid'))}
+function poolInfo(){const lp=S().loan;const outP=r2(sum(T().loans.filter(l=>l.status==='approved'),l=>loanInfo(l).princOut));
+ const cash=cashBalance();const fund=cash+outP;const cap=r2(fund*num(lp.poolPct)/100);
+ return{cash,outP,fund,cap,avail:Math.max(0,r2(Math.min(cap-outP,cash)))}}
+function guaranteesHeld(id,exceptLoan){return openLoans().filter(l=>l.id!==exceptLoan&&(l.guarantors||[]).includes(id)).length}
+function gInfo(id,exceptLoan){if(VIEW.role==='member'){const d=VIEW.dir.find(x=>x.id===id)||{};return{name:d.full_name||'?',good:d.status==='active'&&num(d.arrears)<=0.004,held:0}}
+ const m=mem(id);return{name:m?.name||'?',good:m?goodStanding(m):false,held:guaranteesHeld(id,exceptLoan)}}
+function maxLoanFor(m){const lp=S().loan;const d=duesInfo(m);let mx=num(lp.multiple)*d.paid;if(num(lp.cap)>0)mx=Math.min(mx,num(lp.cap));return r2(mx)}
+function benefitCheck(m,typeId){const s=S(),b=btype(typeId),issues=[];
+ if(!m)return{ok:false,issues:['Choose a member'],amount:0};
+ if(!s.benefitsActive)issues.push('Benefits are switched off for this association (Settings).');
+ if(m.status!=='active')issues.push('Member is not active.');
+ if(monthsMember(m)<num(s.waitingMonths))issues.push(`Waiting period: member needs ${s.waitingMonths} months of membership (has ${monthsMember(m)}).`);
+ const d=duesInfo(m);if(d.arrears>0)issues.push(`Owes ${money(d.arrears)} dues arrears plus ${money(d.penalty)} penalty (${s.penaltyPct}%). Record both before the benefit is paid.`);
+ const amount=num((b.amounts||{})[m.categoryId]);
+ if(!b.active)issues.push('This benefit type is inactive.');
+ if(amount<=0)issues.push("No amount is set for this benefit for the member's category (Settings → Benefits).");
+ const used=T().claims.filter(c=>c.memberId===m.id&&c.typeId===typeId&&['pending','approved','paid'].includes(c.status)).length;
+ if(num(b.maxTimes)>0&&used>=num(b.maxTimes))issues.push(`Limit reached: this benefit can be received ${b.maxTimes} time(s); member already has ${used}.`);
+ return{ok:!issues.length,issues,amount,used}}
+function loanCheck(m,principal,months,kind,gIds,exceptLoan){const s=S(),lp=s.loan,issues=[];principal=num(principal);months=num(months);gIds=gIds||[];
+ if(!m)return{ok:false,issues:['Choose a member']};
+ if(!s.loansActive)issues.push('The loan scheme is switched off for this association (Settings → Loans).');
+ if(m.status!=='active')issues.push('Member is not active.');
+ if(monthsMember(m)<num(lp.minMonths))issues.push(`Needs at least ${lp.minMonths} months of membership (has ${monthsMember(m)}).`);
+ const d=duesInfo(m);if(d.arrears>0)issues.push(`Has ${money(d.arrears)} dues arrears.`);
+ if(T().loans.some(l=>l.memberId===m.id&&l.id!==exceptLoan&&(l.status==='pending'||(l.status==='approved'&&loanInfo(l).state!=='repaid'))))issues.push('Already has an active or pending loan.');
+ const mx=maxLoanFor(m);if(principal<=0)issues.push('Enter the amount requested.');else if(principal>mx)issues.push(`Above member's limit of ${money(mx)} (${lp.multiple}× dues paid${num(lp.cap)>0?', capped at '+money(lp.cap):''}).`);
+ if(VIEW.role!=='member'){const pool=poolInfo();if(principal>pool.avail)issues.push(`Only ${money(pool.avail)} is available to lend right now (${lp.poolPct}% pool rule).`)}
+ if(months<1||months>num(lp.maxMonths))issues.push(`Repayment period must be 1–${lp.maxMonths} months.`);
+ const need=principal>num(lp.guarantorThreshold)?num(lp.guarantorsRequired):0;
+ if(gIds.length<need)issues.push(`Needs ${need} guarantor(s) for loans above ${money(lp.guarantorThreshold)}.`);
+ gIds.forEach(g=>{const gi=gInfo(g,exceptLoan);if(g===m.id)issues.push('A member cannot guarantee their own loan.');
+  else if(!gi.good)issues.push(`Guarantor ${gi.name} is not in good standing.`);
+  else if(gi.held>=num(lp.maxGuarantees))issues.push(`Guarantor ${gi.name} already guarantees ${lp.maxGuarantees} loan(s).`)});
+ const feePct=kind==='emergency'?num(lp.emergencyFeePct):num(lp.generalFeePct);const fee=r2(principal*feePct/100),total=r2(principal+fee);
+ return{ok:!issues.length,issues,max:mx,feePct,fee,total,inst:months?r2(total/months):0,need}}
+
+/* ================= shell ================= */
+const NAV_EXEC=[['dashboard','Dashboard'],['members','Members'],['payments','Payments'],['benefits','Welfare benefits'],['loans','Loans'],['expenses','Expenses'],['reports','Reports'],['users','Users & access'],['settings','Settings'],['activity','Activity log']];
+function route(){return(location.hash||'').slice(1)||(VIEW.role==='exec'?'dashboard':'mine')}
+function go(h){if(location.hash.slice(1)===h)render();else location.hash=h}
+function renderShell(){
+ $('#tenantSel').innerHTML=ME.assocs.map(a=>`<option value="${a.id}" ${a.id===DB.current?'selected':''}>${esc(a.name)}</option>`).join('');
+ $('#tenantWrap').style.display=ME.assocs.length>1||ME.admin?'':'none';
+ const r=route().split('-')[0];
+ let nav=VIEW.role==='exec'?NAV_EXEC.map(([h,l])=>`<a href="#${h}" class="${r===h||(h==='members'&&r==='member')?'on':''}">${l}</a>`).join(''):`<a href="#mine" class="on">My statement</a>`;
+ if(VIEW.role==='exec'&&VIEW.myMemberId)nav+=`<a href="#member-${VIEW.myMemberId}" style="margin-top:8px">My own statement</a>`;
+ $('#nav').innerHTML=nav;
+ $('#newTenantBtn').style.display=ME.admin?'':'none';
+ $('#meEmail').textContent=ME.email;$('#meRole').textContent=roleText();
+ document.body.classList.toggle('ro',VIEW.readonly);
+}
+function header(title,actions){$('#top').innerHTML=`<h1>${esc(title)}</h1>${VIEW.readonly?'<span class="badge b-mute">View only</span>':''}${actions||''}`}
+function render(){
+ if(!T())return;
+ renderShell();
+ let r=route();if(VIEW.role!=='exec')r='mine';
+ const page=r.split('-')[0],arg=r.split('-').slice(1).join('-');
+ const V=$('#view');
+ try{
+  const P={dashboard:pgDashboard,members:pgMembers,member:()=>pgMember(arg),payments:pgPayments,benefits:pgBenefits,loans:pgLoans,expenses:pgExpenses,reports:pgReports,settings:pgSettings,activity:pgActivity,mine:pgMine,users:pgUsers};
+  const out=(P[page]||pgDashboard)();
+  if(out instanceof Promise){V.innerHTML='<p class="muted">Loading…</p>';out.then(h=>{V.innerHTML=h}).catch(e=>{V.innerHTML=`<div class="err">${esc(friendly(e))}</div>`})}else V.innerHTML=out;
+ }catch(e){console.error(e);V.innerHTML=`<div class="err">Something went wrong showing this page: ${esc(e.message)}</div>`}
+}
+
+/* ================= modal ================= */
+function modal(title,html,onOk,okLabel){
+ $('#mTitle').textContent=title;$('#mBody').innerHTML=html;$('#mErr').innerHTML='';
+ $('#mOk').textContent=okLabel||'Save';$('#mOk').style.display=onOk?'':'none';$('#mOk').disabled=false;
+ $('#modal').classList.remove('hidden');
+ const f=$('#mForm');
+ f.onsubmit=async e=>{e.preventDefault();if(!onOk){closeModal();return}
+  const data=Object.fromEntries(new FormData(f));$('#mOk').disabled=true;$('#mErr').innerHTML='';let res;
+  try{res=await onOk(data,f)}catch(err){console.error(err);res=friendly(err)}
+  if(typeof res==='string'){$('#mErr').innerHTML=`<div class="err">${res}</div>`;$('#mOk').disabled=false;return}
+  if(res!==false){closeModal();try{await reload()}catch(err){toast(friendly(err))}render()}else $('#mOk').disabled=false};
+ const first=f.querySelector('input:not([type=hidden]),select,textarea');if(first)setTimeout(()=>first.focus(),30);
+}
+function closeModal(){$('#modal').classList.add('hidden')}
+$('#mCancel').onclick=closeModal;
+function confirmBox(text,fn,label){modal('Please confirm',`<p>${text}</p>`,async()=>{await fn()},label||'Yes, continue')}
+const opt=(v,l,sel)=>`<option value="${esc(v)}" ${String(sel)===String(v)?'selected':''}>${esc(l)}</option>`;
+const memberOptions=(sel,filter)=>T().members.filter(filter||(m=>m.status==='active')).sort((a,b)=>a.name.localeCompare(b.name)).map(m=>opt(m.id,m.name+' ('+m.memberNo+')',sel)).join('');
+const CHANNELS=['Standing order','MoMo','Cash','Bank deposit','Cheque'];
+const PTYPES={dues:'Monthly dues',registration:'Registration fee',penalty:'Arrears penalty',special:'Special contribution',loan:'Loan repayment',donation:'Donation / sponsorship',other:'Other income'};
+
+/* ================= pages ================= */
+function stateBadge(s){return{repaid:'<span class="badge b-ok">Repaid</span>',active:'<span class="badge b-pri">Active</span>',overdue:'<span class="badge b-warn">Overdue</span>',default:'<span class="badge b-bad">In default</span>',pending:'<span class="badge b-mute">Pending approval</span>',rejected:'<span class="badge b-mute">Rejected</span>',approved:'<span class="badge b-pri">Approved</span>',paid:'<span class="badge b-ok">Paid</span>'}[s]||esc(s)}
+function fyRange(offset){const sm=num(S().fyStartMonth)||1;let y=TODAY.getFullYear();if(TODAY.getMonth()+1<sm)y--;y+=offset||0;const a=new Date(y,sm-1,1),b=new Date(y+1,sm-1,0);return{a,b,label:sm===1?String(y):`${y}/${String(y+1).slice(2)}`}}
+const inR=(s,r)=>{const d=pd(s);return d&&d>=r.a&&d<=r.b};
+
+function pgDashboard(){
+ const t=T(),s=S(),fy=fyRange(0);header('Dashboard',`<button class="btn" onclick="payForm()">Record payment</button><button class="btn sec" onclick="bulkDuesForm()">Record monthly dues</button>`);
+ const act=t.members.filter(m=>m.status==='active');
+ const expected=sum(act,m=>cat(m).dues);
+ const thisM=mi(TODAY);const collected=sum(t.payments.filter(p=>p.type==='dues'&&mi(pd(p.date))===thisM&&!NOCASH.includes(p.channel)),p=>p.amount);
+ const arrearsList=act.map(m=>({m,d:duesInfo(m)})).filter(x=>x.d.arrears>0);
+ const pool=poolInfo();
+ const benFY=sum(t.claims.filter(c=>c.status==='paid'&&inR(c.paidOn,fy)),c=>c.amount);
+ const pendC=t.claims.filter(c=>c.status==='pending'||c.status==='approved'),pendL=t.loans.filter(l=>l.status==='pending');
+ const bad=t.loans.filter(l=>l.status==='approved').map(l=>({l,i:loanInfo(l)})).filter(x=>x.i.state==='overdue'||x.i.state==='default');
+ const cover=expected?pool.cash/expected:0;
+ let h='';
+ if(!t.members.length||!t.payments.length)h+=`<div class="card"><h2>Getting started</h2><ol style="margin:0;padding-left:20px;line-height:1.9">
+  <li>${t.members.length?'✓ ':''}<a href="#members">Add the members</a> (name, category, date joined)</li>
+  <li>${t.payments.length?'✓ ':''}<a href="#" onclick="openingForm();return false">Enter opening balances</a>: money already in the bank/MoMo and dues each member paid before using this system</li>
+  <li><a href="#users">Invite the executives</a> so they can sign in</li>
+  <li><a href="#settings">Check the rules</a> (benefit amounts, loan settings) and switch benefits on when agreed</li></ol></div>`;
+ if(!s.benefitsActive)h+=`<div class="info">Welfare benefits are currently <b>switched off</b>. Turn them on in Settings once the association agrees.</div>`;
+ h+=`<div class="kpis">
+ <div class="kpi"><div class="k">Cash balance (bank + MoMo)</div><div class="v">${money(pool.cash)}</div><div class="s">≈ ${cover.toFixed(1)} months of dues income</div></div>
+ <div class="kpi"><div class="k">Active members</div><div class="v">${act.length}</div><div class="s">${arrearsList.length} in arrears</div></div>
+ <div class="kpi"><div class="k">Dues expected / month</div><div class="v">${money(expected)}</div><div class="s">Collected ${MONTHS[TODAY.getMonth()]}: ${money(collected)}</div></div>
+ <div class="kpi"><div class="k">Total dues arrears</div><div class="v">${money(sum(arrearsList,x=>x.d.arrears))}</div><div class="s">+ ${money(sum(arrearsList,x=>x.d.penalty))} penalty if they claim</div></div>
+ <div class="kpi"><div class="k">Benefits paid ${fy.label}</div><div class="v">${money(benFY)}</div><div class="s">Financial year from ${MONTHS[fy.a.getMonth()]}</div></div>
+ <div class="kpi"><div class="k">Loans outstanding</div><div class="v">${money(pool.outP)}</div><div class="s">${s.loansActive?'Available to lend: '+money(pool.avail):'Loan scheme switched off'}</div></div>
+ </div>`;
+ h+=`<div class="grid2"><div class="card"><h2>Waiting for action</h2>`;
+ if(!pendC.length&&!pendL.length)h+=`<p class="muted">Nothing pending.</p>`;
+ pendC.forEach(c=>{h+=`<div class="row" style="justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line)"><span>${stateBadge(c.status)} ${esc(nameOf(c.memberId))} — ${esc(btype(c.typeId).name)} <b>${money(c.amount)}</b></span><a class="btn sm sec ro-ok" href="#benefits">Open</a></div>`});
+ pendL.forEach(l=>{h+=`<div class="row" style="justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line)"><span>${stateBadge('pending')} Loan — ${esc(nameOf(l.memberId))} <b>${money(l.principal)}</b></span><a class="btn sm sec ro-ok" href="#loans">Open</a></div>`});
+ h+=`</div><div class="card"><h2>Members in arrears (${arrearsList.length})</h2>`;
+ if(!arrearsList.length)h+=`<p class="muted">Everyone is up to date.</p>`;else h+=`<table><tr><th>Member</th><th class="n">Months</th><th class="n">Arrears</th><th></th></tr>`+arrearsList.sort((a,b)=>b.d.arrears-a.d.arrears).map(x=>`<tr class="click" onclick="go('member-${x.m.id}')"><td>${esc(x.m.name)}</td><td class="n">${x.d.arrearsMonths.toFixed(0)}</td><td class="n">${money(x.d.arrears)}</td><td>${x.d.arrearsMonths>=num(s.arrearsFlagMonths)?'<span class="badge b-bad">Refer to DCRC</span>':''}</td></tr>`).join('')+`</table>`;
+ h+=`</div></div>`;
+ if(bad.length)h+=`<div class="card"><h2>Loans needing follow-up</h2><table><tr><th>Borrower</th><th>Status</th><th class="n">Overdue</th><th class="n">Days</th><th class="n">Balance</th><th>Guarantors</th></tr>`+bad.map(x=>`<tr><td>${esc(nameOf(x.l.memberId))}</td><td>${stateBadge(x.i.state)}</td><td class="n">${money(x.i.overdue)}</td><td class="n">${x.i.days}</td><td class="n">${money(x.i.out)}</td><td>${(x.l.guarantors||[]).map(g=>esc(nameOf(g))).join(', ')}</td></tr>`).join('')+`</table></div>`;
+ h+=`<div class="card"><h2>Fund health</h2><p class="small muted">Total welfare fund (cash + loans out): <b>${money(pool.fund)}</b>. Loan pool cap (${s.loan.poolPct}%): <b>${money(pool.cap)}</b>. Reserved for welfare benefits: <b>${money(pool.fund-pool.cap)}</b>.</p>${fundBar(pool)}</div>`;
+ return h}
+function fundBar(p){const tot=Math.max(p.fund,1);const w=x=>Math.max(0,Math.min(100,x/tot*100)).toFixed(1);
+ return `<div style="display:flex;height:18px;border-radius:6px;overflow:hidden;background:#eef1f0"><div title="Loans out" style="width:${w(p.outP)}%;background:#d9a441"></div><div title="Still lendable" style="width:${w(p.avail)}%;background:#7cc2b4"></div><div title="Welfare reserve" style="flex:1;background:#0f6b5c"></div></div>
+ <div class="row small muted" style="margin-top:6px"><span>▇ <span style="color:#d9a441">Loans out ${money(p.outP)}</span></span><span>▇ <span style="color:#3c9a88">Still lendable ${money(p.avail)}</span></span><span>▇ <span style="color:#0f6b5c">Welfare reserve</span></span></div>`}
+
+function pgMembers(){const t=T();header('Members',`<button class="btn" onclick="memberForm()">Add member</button>`);
+ const qq=VIEW.memberSearch.toLowerCase();
+ const rows=t.members.filter(m=>!qq||(m.name+m.memberNo+m.phone).toLowerCase().includes(qq)).sort((a,b)=>a.memberNo.localeCompare(b.memberNo,undefined,{numeric:true}));
+ return `<div class="card"><div class="row" style="margin-bottom:10px"><input class="cell" style="max-width:280px" placeholder="Search name, number or phone" value="${esc(VIEW.memberSearch)}" oninput="VIEW.memberSearch=this.value;clearTimeout(window._ms);window._ms=setTimeout(()=>{render();const i=document.querySelector('#view input');i.focus();i.setSelectionRange(i.value.length,i.value.length)},250)"><span class="muted small">${rows.length} of ${t.members.length} members</span></div>
+ ${t.members.length?'':'<p class="muted">No members yet. Click <b>Add member</b> to start.</p>'}
+ <div class="tw"><table><tr><th>No.</th><th>Name</th><th>Category</th><th>Joined</th><th class="n">Dues paid</th><th class="n">Arrears</th><th class="n">Benefits</th><th>Loan</th><th>Status</th></tr>
+ ${rows.map(m=>{const d=duesInfo(m);const l=t.loans.find(l=>l.memberId===m.id&&l.status==='approved'&&loanInfo(l).state!=='repaid');
+  return `<tr class="click" onclick="go('member-${m.id}')"><td>${esc(m.memberNo)}</td><td><b>${esc(m.name)}</b><div class="small muted">${esc(m.phone)}${m.userId?' · has login':''}</div></td><td>${esc(cat(m).name)}</td><td>${fd(m.joinDate)}</td><td class="n">${money(d.paid)}</td><td class="n">${d.arrears>0?'<span style="color:var(--bad)">'+money(d.arrears)+'</span>':'—'}</td><td class="n">${benefitsReceived(m)}</td><td>${l?stateBadge(loanInfo(l).state):'—'}</td><td>${m.status==='active'?(d.arrears>0?'<span class="badge b-warn">Owing</span>':'<span class="badge b-ok">Good standing</span>'):'<span class="badge b-mute">'+esc(m.status)+'</span>'}</td></tr>`}).join('')}
+ </table></div></div>`}
+
+function statementHTML(m,isExec){const t=T(),s=S(),d=duesInfo(m);
+ const pays=t.payments.filter(p=>p.memberId===m.id).sort((a,b)=>b.date.localeCompare(a.date));
+ const cl=t.claims.filter(c=>c.memberId===m.id);const lo=t.loans.filter(l=>l.memberId===m.id);
+ const gu=t.loans.filter(l=>l.memberId!==m.id&&l.status!=='rejected'&&(l.guarantors||[]).includes(m.id));
+ let h=`<div class="card"><div class="row" style="justify-content:space-between"><div><div style="font-size:18px;font-weight:700">${esc(m.name)}</div><div class="muted small">${esc(m.memberNo)} · ${esc(cat(m).name)} · joined ${fd(m.joinDate)} · ${esc(m.phone)}${m.email?' · '+esc(m.email):''}</div>
+ ${m.nok?`<div class="muted small">Next of kin: ${esc(m.nok)} ${esc(m.nokPhone)}</div>`:''}</div><div>${m.status==='active'?(d.arrears>0?'<span class="badge b-warn">Owing dues</span>':'<span class="badge b-ok">Good standing</span>'):'<span class="badge b-mute">'+esc(m.status)+'</span>'} <span class="badge b-pri">Benefit status: ${benefitsReceived(m)}</span></div></div></div>
+ <div class="kpis"><div class="kpi"><div class="k">Dues owed to date</div><div class="v">${money(d.owed)}</div><div class="s">${d.months} months</div></div>
+ <div class="kpi"><div class="k">Dues paid</div><div class="v">${money(d.paid)}</div><div class="s">${d.credit>0?'Paid ahead: '+money(d.credit):'Non-refundable'}</div></div>
+ <div class="kpi"><div class="k">Arrears</div><div class="v" style="color:${d.arrears>0?'var(--bad)':'inherit'}">${money(d.arrears)}</div><div class="s">${d.arrears>0?'+ '+money(d.penalty)+' penalty to claim a benefit':'Up to date'}</div></div>
+ <div class="kpi"><div class="k">Can borrow up to</div><div class="v">${s.loansActive?money(maxLoanFor(m)):'—'}</div><div class="s">${s.loansActive?s.loan.multiple+'× dues paid'+(num(s.loan.cap)>0?', max '+money(s.loan.cap):''):'Loan scheme off'}</div></div></div>`;
+ h+=`<div class="card"><h2>Loans</h2>${lo.length?`<div class="tw"><table><tr><th>Applied</th><th>Type</th><th class="n">Amount</th><th class="n">Total to repay</th><th class="n">Paid</th><th class="n">Balance</th><th>Status</th></tr>${lo.map(l=>{const i=loanInfo(l);return `<tr><td>${fd(l.applied)}</td><td>${l.kind==='emergency'?'Emergency':'General'}</td><td class="n">${money(l.principal)}</td><td class="n">${money(l.total)}</td><td class="n">${money(i.paid)}</td><td class="n">${money(l.status==='approved'?i.out:0)}</td><td>${stateBadge(l.status==='approved'?i.state:l.status)}${l.reject?`<div class="small muted">${esc(l.reject)}</div>`:''}</td></tr>`+(l.status==='approved'&&i.state!=='repaid'?`<tr><td></td><td colspan="6" class="small muted">Schedule: ${i.schedule.map(x=>`${fd(x.due)} ${money(x.amt)}${pd(x.due)<=TODAY?(i.paid+0.004>=x.cum?' ✓':' ✗'):''}`).join(' · ')}</td></tr>`:'')}).join('')}</table></div>`:'<p class="muted">No loans.</p>'}
+ ${gu.length?`<p class="small"><b>Guarantor for:</b> ${gu.map(l=>`${esc(nameOf(l.memberId))} (${money(l.principal)}) ${l.consents&&l.consents[m.id]?'<span class="badge b-ok">confirmed</span>':(VIEW.role==='member'&&VIEW.memberId===m.id?`<button class="btn sm" onclick="consent('${l.id}')">I agree to guarantee</button>`:'<span class="badge b-mute">not yet confirmed</span>')}`).join(' · ')}</p>`:''}</div>`;
+ h+=`<div class="card"><h2>Welfare benefits</h2>${cl.length?`<table><tr><th>Event date</th><th>Benefit</th><th class="n">Amount</th><th>Status</th><th>Paid on</th></tr>${cl.map(c=>`<tr><td>${fd(c.eventDate)}</td><td>${esc(btype(c.typeId).name)}${c.offset?`<div class="small muted">${money(c.offset)} used to clear loan</div>`:''}${c.reject?`<div class="small muted">${esc(c.reject)}</div>`:''}</td><td class="n">${money(c.amount)}</td><td>${stateBadge(c.status)}</td><td>${fd(c.paidOn)}</td></tr>`).join('')}</table>`:'<p class="muted">No benefits yet.</p>'}</div>`;
+ h+=`<div class="card"><h2>Payment history</h2>${pays.length?`<div class="tw"><table><tr><th>Date</th><th>Type</th><th>Channel</th><th>Reference</th><th>Note</th><th class="n">Amount</th>${isExec?'<th></th>':''}</tr>${pays.map(p=>`<tr><td>${fd(p.date)}</td><td>${PTYPES[p.type]||p.type}</td><td>${esc(p.channel)}</td><td>${esc(p.ref)}</td><td class="small">${esc(p.note)}</td><td class="n">${money(p.amount)}</td>${isExec?`<td><button class="btn sm ghost" onclick="delPayment('${p.id}')">Delete</button></td>`:''}</tr>`).join('')}</table></div>`:'<p class="muted">No payments yet.</p>'}</div>`;
+ return h}
+function pgMember(id){const m=mem(id);if(!m){header('Member not found');return '<p>That member no longer exists.</p>'}
+ header(m.name,`<button class="btn" onclick="payForm('${m.id}')">Record payment</button><button class="btn sec" onclick="claimForm('${m.id}')">New benefit claim</button><button class="btn sec" onclick="loanForm('${m.id}')">New loan</button><button class="btn ghost" onclick="memberForm('${m.id}')">Edit</button>`);
+ return `<p><a href="#members">← All members</a></p>`+statementHTML(m,!VIEW.readonly)}
+function pgMine(){const m=mem(VIEW.memberId);if(!m){header('My statement');return '<div class="note">Your login is not linked to a member record yet. Please ask the Secretary.</div>'}
+ header('My statement',`<button class="btn ro-ok" onclick="claimForm('${m.id}')">Request a benefit</button><button class="btn sec ro-ok" onclick="loanForm('${m.id}')">Apply for a loan</button>`);
+ return `<div class="info">You can see your own records only. Requests you send go to the Executive Council for approval.</div>`+statementHTML(m,false)}
+
+function pgPayments(){const t=T();header('Payments',`<button class="btn" onclick="payForm()">Record payment</button><button class="btn sec" onclick="bulkDuesForm()">Record monthly dues</button>`);
+ const f=VIEW.payFilter;const rows=t.payments.filter(p=>!f||p.type===f).sort((a,b)=>b.date.localeCompare(a.date));
+ const shown=rows.slice(0,300);
+ return `<div class="card"><div class="row" style="margin-bottom:10px"><select class="cell" style="max-width:220px" onchange="VIEW.payFilter=this.value;render()"><option value="">All types</option>${Object.entries(PTYPES).map(([k,v])=>opt(k,v,f)).join('')}</select><span class="muted small">${rows.length} payments · total ${money(sum(rows,p=>p.amount))}${rows.length>300?' · showing latest 300':''}</span></div>
+ <div class="tw"><table><tr><th>Date</th><th>Member</th><th>Type</th><th>Channel</th><th>Reference</th><th>Note</th><th class="n">Amount</th><th></th></tr>
+ ${shown.map(p=>`<tr><td>${fd(p.date)}</td><td>${p.memberId?`<a href="#member-${p.memberId}">${esc(nameOf(p.memberId))}</a>`:'—'}</td><td>${PTYPES[p.type]||p.type}</td><td>${esc(p.channel)}</td><td>${esc(p.ref)}</td><td class="small">${esc(p.note)}</td><td class="n">${money(p.amount)}</td><td><button class="btn sm ghost" onclick="delPayment('${p.id}')">Delete</button></td></tr>`).join('')}
+ </table></div></div>`}
+
+function pgBenefits(){const t=T(),s=S();header('Welfare benefits',`<button class="btn" onclick="claimForm()">New claim</button>`);
+ const cats=t.categories;
+ let h='';if(!s.benefitsActive)h+=`<div class="note">Benefits are switched off in Settings. Claims can be recorded but not paid.</div>`;
+ const order={pending:0,approved:1,paid:2,rejected:3};
+ const cl=[...t.claims].sort((a,b)=>order[a.status]-order[b.status]||(b.eventDate||'').localeCompare(a.eventDate||''));
+ h+=`<div class="card"><h2>Claims</h2>${cl.length?`<div class="tw"><table><tr><th>Member</th><th>Benefit</th><th>Event date</th><th class="n">Amount</th><th>Status</th><th>Actions</th></tr>${cl.map(c=>`<tr><td><a href="#member-${c.memberId}">${esc(nameOf(c.memberId))}</a></td><td>${esc(btype(c.typeId).name)}<div class="small muted">${esc(c.desc)}${c.override?' · <b>Override:</b> '+esc(c.override):''}${c.reject?' · '+esc(c.reject):''}</div></td><td>${fd(c.eventDate)}</td><td class="n">${money(c.amount)}${c.offset?`<div class="small muted">− ${money(c.offset)} loan offset</div>`:''}</td><td>${stateBadge(c.status)}${c.paidOn?`<div class="small muted">${fd(c.paidOn)} ${esc(c.channel)}</div>`:''}</td><td class="row">${c.status==='pending'?`<button class="btn sm" onclick="approveClaim('${c.id}')">Approve</button><button class="btn sm ghost" onclick="rejectClaim('${c.id}')">Reject</button>`:''}${c.status==='approved'?`<button class="btn sm" onclick="payClaim('${c.id}')">Pay</button>`:''}${c.status!=='paid'?`<button class="btn sm ghost" onclick="delClaim('${c.id}')">Delete</button>`:''}</td></tr>`).join('')}</table></div>`:'<p class="muted">No claims yet.</p>'}</div>`;
+ h+=`<div class="card"><h2>Benefit schedule</h2><div class="tw"><table><tr><th>Event</th>${cats.map(c=>`<th class="n">${esc(c.name)}</th>`).join('')}<th>Limit</th><th>Note</th></tr>${t.benefitTypes.filter(b=>b.active).map(b=>`<tr><td>${esc(b.name)}</td>${cats.map(c=>`<td class="n">${num(b.amounts[c.id])>0?money(b.amounts[c.id]):'<span class="badge b-warn">Not set</span>'}</td>`).join('')}<td>${num(b.maxTimes)>0?b.maxTimes+'×':'No limit'}</td><td class="small muted">${esc(b.note)}</td></tr>`).join('')}</table></div><p class="small muted">Edit amounts and limits in Settings → Welfare benefits.</p></div>`;
+ return h}
+
+function pgLoans(){const t=T(),s=S(),lp=s.loan,pool=poolInfo();header('Loans',`<button class="btn" onclick="loanForm()">New loan application</button>`);
+ let h='';if(!s.loansActive)h+=`<div class="note">The loan scheme is switched off. Turn it on in Settings → Loan scheme when the Executive Council decides the fund is ready.</div>`;
+ h+=`<div class="kpis"><div class="kpi"><div class="k">Loans outstanding (principal)</div><div class="v">${money(pool.outP)}</div></div><div class="kpi"><div class="k">Pool cap (${lp.poolPct}% of fund)</div><div class="v">${money(pool.cap)}</div></div><div class="kpi"><div class="k">Available to lend now</div><div class="v">${money(pool.avail)}</div></div><div class="kpi"><div class="k">Fees</div><div class="v" style="font-size:15px">${lp.emergencyFeePct}% emergency · ${lp.generalFeePct}% general</div><div class="s">Flat, repay within ${lp.maxMonths} months</div></div></div>`;
+ const order={pending:0,approved:1,rejected:2};
+ const ls=[...t.loans].sort((a,b)=>order[a.status]-order[b.status]||b.applied.localeCompare(a.applied));
+ h+=`<div class="card"><h2>Loan register</h2>${ls.length?`<div class="tw"><table><tr><th>Borrower</th><th>Type</th><th class="n">Amount</th><th class="n">Total</th><th class="n">Monthly</th><th class="n">Paid</th><th class="n">Balance</th><th>Guarantors</th><th>Status</th><th>Actions</th></tr>${ls.map(l=>{const i=loanInfo(l),st=l.status==='approved'?i.state:l.status;return `<tr><td><a href="#member-${l.memberId}">${esc(nameOf(l.memberId))}</a><div class="small muted">${fd(l.applied)} · ${esc(l.purpose)}${l.override?' · <b>Override:</b> '+esc(l.override):''}${l.reject?' · '+esc(l.reject):''}</div></td><td>${l.kind==='emergency'?'Emergency':'General'}</td><td class="n">${money(l.principal)}</td><td class="n">${money(l.total)}</td><td class="n">${money(i.inst)}<div class="small muted">${l.months} mo</div></td><td class="n">${money(i.paid)}</td><td class="n">${l.status==='approved'?money(i.out):'—'}</td><td class="small">${(l.guarantors||[]).map(g=>esc(nameOf(g))+(l.consents[g]?' ✓':'')).join('<br>')||'—'}</td><td>${stateBadge(st)}${st==='overdue'||st==='default'?`<div class="small muted">${money(i.overdue)} · ${i.days} days</div>`:''}</td><td class="row">${l.status==='pending'?`<button class="btn sm" onclick="approveLoan('${l.id}')">Approve &amp; disburse</button><button class="btn sm ghost" onclick="rejectLoan('${l.id}')">Reject</button>`:''}${l.status==='approved'&&st!=='repaid'?`<button class="btn sm" onclick="payForm('${l.memberId}','loan','${l.id}')">Repayment</button>`:''}${st==='default'?`<button class="btn sm sec" onclick="guarantorRecovery('${l.id}')">Recover from guarantors</button>`:''}${l.status!=='approved'?`<button class="btn sm ghost" onclick="delLoan('${l.id}')">Delete</button>`:''}</td></tr>`}).join('')}</table></div><p class="small muted">✓ = guarantor has confirmed in their own login.</p>`:'<p class="muted">No loans yet.</p>'}</div>`;
+ return h}
+
+function pgExpenses(){const t=T();header('Expenses',`<button class="btn" onclick="expenseForm()">Record expense</button>`);
+ const ex=[...t.expenses].sort((a,b)=>b.date.localeCompare(a.date));
+ return `<div class="card"><p class="small muted">Running costs paid from the fund: bank charges, printing, meetings, CSR events, etc. Benefits and loans are recorded on their own pages.</p>${ex.length?`<table><tr><th>Date</th><th>Description</th><th>Category</th><th class="n">Amount</th><th></th></tr>${ex.map(e=>`<tr><td>${fd(e.date)}</td><td>${esc(e.desc)}</td><td>${esc(e.category)}</td><td class="n">${money(e.amount)}</td><td><button class="btn sm ghost" onclick="delExpense('${e.id}')">Delete</button></td></tr>`).join('')}<tr><th colspan="3">Total</th><th class="n">${money(sum(ex,e=>e.amount))}</th><th></th></tr></table>`:'<p class="muted">No expenses yet.</p>'}</div>`}
+
+/* ---- reports ---- */
+function pgReports(){header('Reports');const tabs=[['statement','Member statement'],['arrears','Arrears & defaulters'],['ie','Income & expenditure'],['benefits','Benefits register'],['loans','Loans register']];
+ let h=`<div class="tabs">${tabs.map(([k,l])=>`<button class="${VIEW.reportTab===k?'on':''}" onclick="VIEW.reportTab='${k}';render()">${l}</button>`).join('')}</div>`;
+ const t=T(),s=S();
+ if(VIEW.reportTab==='statement'){const id=VIEW.reportMember||t.members[0]?.id;
+  if(!id)return h+'<p class="muted">No members yet.</p>';
+  h+=`<div class="card row"><label class="f" style="margin:0;min-width:280px">Member<select onchange="VIEW.reportMember=this.value;render()">${memberOptions(id,()=>true)}</select></label></div>`;
+  if(mem(id))h+=statementHTML(mem(id),false);}
+ if(VIEW.reportTab==='arrears'){const rows=t.members.filter(m=>m.status==='active').map(m=>({m,d:duesInfo(m)})).filter(x=>x.d.arrears>0).sort((a,b)=>b.d.arrears-a.d.arrears);
+  const bad=t.loans.filter(l=>l.status==='approved').map(l=>({l,i:loanInfo(l)})).filter(x=>x.i.state==='overdue'||x.i.state==='default');
+  window._csv=[['Member No','Name','Phone','Months in arrears','Arrears','Penalty','Refer to DCRC']].concat(rows.map(x=>[x.m.memberNo,x.m.name,x.m.phone,x.d.arrearsMonths.toFixed(0),x.d.arrears,x.d.penalty,x.d.arrearsMonths>=num(s.arrearsFlagMonths)?'Yes':'No']));
+  h+=`<div class="card"><div class="row" style="justify-content:space-between"><h2>Dues arrears as at ${fd(iso(TODAY))}</h2><button class="btn sm sec ro-ok" onclick="copyCSV()">Copy as CSV</button></div>${rows.length?`<table><tr><th>No.</th><th>Name</th><th>Phone</th><th class="n">Months</th><th class="n">Arrears</th><th class="n">Penalty (${s.penaltyPct}%)</th><th></th></tr>${rows.map(x=>`<tr><td>${esc(x.m.memberNo)}</td><td>${esc(x.m.name)}</td><td>${esc(x.m.phone)}</td><td class="n">${x.d.arrearsMonths.toFixed(0)}</td><td class="n">${money(x.d.arrears)}</td><td class="n">${money(x.d.penalty)}</td><td>${x.d.arrearsMonths>=num(s.arrearsFlagMonths)?'<span class="badge b-bad">Refer to DCRC</span>':''}</td></tr>`).join('')}<tr><th colspan="4">Total</th><th class="n">${money(sum(rows,x=>x.d.arrears))}</th><th class="n">${money(sum(rows,x=>x.d.penalty))}</th><th></th></tr></table>`:'<p class="muted">No arrears.</p>'}</div>
+  <div class="card"><h2>Loan defaulters</h2>${bad.length?`<table><tr><th>Borrower</th><th>Status</th><th class="n">Overdue</th><th class="n">Days</th><th class="n">Balance</th><th>Guarantors</th></tr>${bad.map(x=>`<tr><td>${esc(nameOf(x.l.memberId))}</td><td>${stateBadge(x.i.state)}</td><td class="n">${money(x.i.overdue)}</td><td class="n">${x.i.days}</td><td class="n">${money(x.i.out)}</td><td>${(x.l.guarantors||[]).map(g=>esc(nameOf(g))).join(', ')}</td></tr>`).join('')}</table>`:'<p class="muted">No overdue loans.</p>'}</div>`}
+ if(VIEW.reportTab==='ie'){const off=VIEW.fy??0;const fy=fyRange(off);
+  const P=t.payments.filter(p=>!NOINCOME.includes(p.channel)&&inR(p.date,fy));
+  const inc=Object.keys(PTYPES).map(k=>[PTYPES[k],sum(P.filter(p=>p.type===k),p=>p.amount)]).filter(x=>x[1]);
+  const C=t.claims.filter(c=>c.status==='paid'&&!NOCASH.includes(c.channel)&&inR(c.paidOn,fy));
+  const ben={};C.forEach(c=>{const n=btype(c.typeId).name;ben[n]=(ben[n]||0)+num(c.amount)-num(c.offset)});
+  const E=t.expenses.filter(e=>inR(e.date,fy));const exc={};E.forEach(e=>exc[e.category]=(exc[e.category]||0)+num(e.amount));
+  const L=t.loans.filter(l=>l.status==='approved'&&inR(l.disbursed,fy));
+  const ti=sum(inc,x=>x[1]),tb=sum(Object.values(ben)),te=sum(Object.values(exc)),tl=sum(L,l=>l.principal);
+  window._csv=[['Item','Amount']].concat(inc.map(x=>['Income: '+x[0],x[1]]),Object.entries(ben).map(x=>['Benefit: '+x[0],x[1]]),Object.entries(exc).map(x=>['Expense: '+x[0],x[1]]),[['Loans disbursed',tl],['Net cash movement',ti-tb-te-tl]]);
+  const line=(a,b,bold)=>`<tr><td${bold?' style="font-weight:700"':''}>${a}</td><td class="n"${bold?' style="font-weight:700"':''}>${money(b)}</td></tr>`;
+  h+=`<div class="card"><div class="row" style="justify-content:space-between"><h2>Income &amp; expenditure — financial year ${fy.label} (${fd(iso(fy.a))} to ${fd(iso(fy.b))})</h2><div class="row"><select class="cell" style="width:auto" onchange="VIEW.fy=+this.value;render()">${[0,-1,-2].map(o=>opt(o,'FY '+fyRange(o).label,off)).join('')}</select><button class="btn sm sec ro-ok" onclick="copyCSV()">Copy as CSV</button></div></div>
+  <table style="max-width:560px"><tr><th colspan="2">Income</th></tr>${inc.map(x=>line(x[0],x[1])).join('')||line('<span class="muted">None</span>',0)}${line('Total income',ti,1)}
+  <tr><th colspan="2">Welfare benefits paid (cash)</th></tr>${Object.entries(ben).map(x=>line(esc(x[0]),x[1])).join('')||line('<span class="muted">None</span>',0)}${line('Total benefits',tb,1)}
+  <tr><th colspan="2">Operating expenses</th></tr>${Object.entries(exc).map(x=>line(esc(x[0]),x[1])).join('')||line('<span class="muted">None</span>',0)}${line('Total expenses',te,1)}
+  ${line('Surplus / (deficit) before loans',ti-tb-te,1)}${line('Loans disbursed in the year',tl)}${line('Net cash movement',ti-tb-te-tl,1)}${off===0?line('Cash balance today',cashBalance(),1):''}</table>
+  <p class="small muted">Opening balances entered when the association started using the system are not counted as income.</p></div>`}
+ if(VIEW.reportTab==='benefits'){const cl=t.claims.filter(c=>c.status==='paid').sort((a,b)=>b.paidOn.localeCompare(a.paidOn));
+  window._csv=[['Paid on','Member','Benefit','Event date','Amount','Loan offset','Channel','Reference']].concat(cl.map(c=>[c.paidOn,nameOf(c.memberId),btype(c.typeId).name,c.eventDate,c.amount,c.offset||0,c.channel,c.ref]));
+  h+=`<div class="card"><div class="row" style="justify-content:space-between"><h2>Benefits paid register</h2><button class="btn sm sec ro-ok" onclick="copyCSV()">Copy as CSV</button></div>${cl.length?`<table><tr><th>Paid on</th><th>Member</th><th>Benefit</th><th>Channel / ref</th><th class="n">Amount</th></tr>${cl.map(c=>`<tr><td>${fd(c.paidOn)}</td><td>${esc(nameOf(c.memberId))}</td><td>${esc(btype(c.typeId).name)}</td><td>${esc(c.channel)} ${esc(c.ref)}</td><td class="n">${money(c.amount)}</td></tr>`).join('')}<tr><th colspan="4">Total</th><th class="n">${money(sum(cl,c=>c.amount))}</th></tr></table>`:'<p class="muted">None yet.</p>'}</div>`}
+ if(VIEW.reportTab==='loans'){const ls=t.loans.filter(l=>l.status==='approved');
+  window._csv=[['Borrower','Disbursed','Type','Principal','Fee','Total','Paid','Balance','Status','Guarantors']].concat(ls.map(l=>{const i=loanInfo(l);return[nameOf(l.memberId),l.disbursed,l.kind,l.principal,l.fee,l.total,i.paid,i.out,i.state,(l.guarantors||[]).map(nameOf).join('; ')]}));
+  h+=`<div class="card"><div class="row" style="justify-content:space-between"><h2>Loans register</h2><button class="btn sm sec ro-ok" onclick="copyCSV()">Copy as CSV</button></div>${ls.length?`<table><tr><th>Borrower</th><th>Disbursed</th><th class="n">Principal</th><th class="n">Fee</th><th class="n">Paid</th><th class="n">Balance</th><th>Status</th></tr>${ls.map(l=>{const i=loanInfo(l);return `<tr><td>${esc(nameOf(l.memberId))}</td><td>${fd(l.disbursed)}</td><td class="n">${money(l.principal)}</td><td class="n">${money(l.fee)}</td><td class="n">${money(i.paid)}</td><td class="n">${money(i.out)}</td><td>${stateBadge(i.state)}</td></tr>`}).join('')}<tr><th colspan="2">Total</th><th class="n">${money(sum(ls,l=>l.principal))}</th><th class="n">${money(sum(ls,l=>l.fee))}</th><th class="n">${money(sum(ls,l=>loanInfo(l).paid))}</th><th class="n">${money(sum(ls,l=>loanInfo(l).out))}</th><th></th></tr></table>`:'<p class="muted">None yet.</p>'}</div>`}
+ return h}
+function csvText(){return(window._csv||[]).map(r=>r.map(v=>{v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(',')).join('\n')}
+function copyCSV(){const csv=csvText();navigator.clipboard.writeText(csv).then(()=>toast('Copied — paste into Excel or Google Sheets'),()=>modal('Copy this CSV',`<textarea class="code">${esc(csv)}</textarea>`))}
+
+/* ---- users & access ---- */
+async function pgUsers(){header('Users & access',`<button class="btn" onclick="inviteForm()">Invite someone</button>`);
+ const aid=DB.current;
+ const [au,inv]=await Promise.all([q(sb.from('association_users').select('*').eq('association_id',aid)),q(sb.from('invites').select('*').eq('association_id',aid).is('accepted_at',null))]);
+ VIEW._au=au;
+ const rows=au.filter(u=>u.role!=='kab_admin').sort((a,b)=>EXEC_ROLES.concat(['dcrc','auditor','member']).indexOf(a.role)-EXEC_ROLES.concat(['dcrc','auditor','member']).indexOf(b.role));
+ return `<div class="info">To give someone access: click <b>Invite someone</b> and enter their email and role. Then send them the app link. They click <b>Create account</b> using that same email, and their access is switched on automatically.</div>
+ <div class="card"><h2>People with access (${rows.length})</h2>${rows.length?`<table><tr><th>Email</th><th>Role</th><th>Linked member</th><th></th></tr>${rows.map(u=>`<tr><td>${esc(u.email||'(email not recorded)')}</td><td>${esc(ROLE_LABEL[u.role]||u.role)}</td><td>${u.member_id?esc(nameOf(u.member_id)):'—'}</td><td>${u.user_id===ME.user.id?'<span class="small muted">you</span>':`<button class="btn sm ghost" onclick="removeAccess('${u.user_id}','${u.role}')">Remove</button>`}</td></tr>`).join('')}</table>`:'<p class="muted">Nobody yet apart from KAB Tech.</p>'}</div>
+ <div class="card"><h2>Waiting to sign up (${inv.length})</h2>${inv.length?`<table><tr><th>Email</th><th>Role</th><th>Linked member</th><th>Invited</th><th></th></tr>${inv.map(i=>`<tr><td>${esc(i.email)}</td><td>${esc(ROLE_LABEL[i.role]||i.role)}</td><td>${i.member_id?esc(nameOf(i.member_id)):'—'}</td><td>${fd(i.created_at)}</td><td><button class="btn sm ghost" onclick="cancelInvite('${i.id}')">Cancel</button></td></tr>`).join('')}</table>`:'<p class="muted">No pending invitations.</p>'}
+ <p class="small muted">App link to send: <b>${esc(location.origin+location.pathname)}</b></p></div>
+ <div class="card"><h2>What each role can do</h2><table><tr><th>Role</th><th>Can do</th></tr>
+ <tr><td>President</td><td>Everything, including changing rules and giving people access</td></tr>
+ <tr><td>Treasurer / Financial Secretary</td><td>Record payments, expenses, benefits and loans; view everything</td></tr>
+ <tr><td>Secretary</td><td>Add and edit members; approve claims and loans; view everything</td></tr>
+ <tr><td>Vice-President</td><td>Approve claims and loans; view everything</td></tr>
+ <tr><td>DCRC / Auditor</td><td>View everything, change nothing</td></tr>
+ <tr><td>Member</td><td>See their own statement; request benefits and loans; confirm guarantees</td></tr></table></div>`}
+function inviteForm(){modal('Invite someone',`<label class="f">Their email address<input type="email" name="email" required placeholder="name@example.com"></label>
+ <label class="f">Role<select name="role" id="iRole">${['president','vice_president','secretary','treasurer','financial_secretary','dcrc','auditor','member'].map(r=>opt(r,ROLE_LABEL[r],'member')).join('')}</select></label>
+ <label class="f">Which member is this? <span class="small">(needed for "Member"; recommended for executives so they can see their own statement)</span><select name="member_id"><option value="">— not linked —</option>${memberOptions('',()=>true)}</select></label>`,async d=>{
+  const email=d.email.trim().toLowerCase();if(d.role==='member'&&!d.member_id)return 'Choose which member this login belongs to.';
+  await ins('invites',{association_id:DB.current,email,role:d.role,member_id:d.member_id||null});
+  if(d.role!=='member'&&d.member_id)await sb.from('invites').insert({association_id:DB.current,email,role:'member',member_id:d.member_id});
+  await log(`Invited ${email} as ${ROLE_LABEL[d.role]}`);toast('Invitation saved — now send them the app link')},'Save invitation')}
+function cancelInvite(id){confirmBox('Cancel this invitation?',async()=>{await delw('invites',{id});await log('Invitation cancelled')},'Cancel invitation')}
+function removeAccess(uid,role){confirmBox(`Remove this person's ${ROLE_LABEL[role]} access?`,async()=>{await delw('association_users',{association_id:DB.current,user_id:uid,role});await log(`Access removed: ${ROLE_LABEL[role]}`)},'Remove')}
+
+/* ---- settings ---- */
+const SETCOL={name:'name',shortCode:'short_code',address:'address',currency:'currency',fyStartMonth:'fy_start_month',dueDay:'due_day',regFee:'reg_fee',penaltyPct:'penalty_pct',arrearsFlagMonths:'arrears_flag_months',waitingMonths:'waiting_months',noticeDays:'notice_days',benefitsActive:'benefits_active',loansActive:'loans_active'};
+const LOANCOL={poolPct:'pool_pct',minMonths:'min_months',multiple:'multiple_of_dues',cap:'flat_cap',emergencyFeePct:'emergency_fee_pct',generalFeePct:'general_fee_pct',maxMonths:'max_months',guarantorThreshold:'guarantor_threshold',guarantorsRequired:'guarantors_required',defaultDays:'default_days',maxGuarantees:'max_guarantees',offsetFromBenefits:'offset_from_benefits'};
+function pgSettings(){const t=T(),s=S();header('Settings');const dis=VIEW.readonly?'disabled':'';
+ const fld=(label,path,type,extra)=>{const v=path.split('.').reduce((o,k)=>o[k],s);return `<label class="f">${label}<input type="${type||'text'}" value="${esc(v)}" ${extra||''} ${dis} onchange="setS('${path}',this.value,'${type||'text'}')"></label>`};
+ const tog=(label,path,help)=>{const v=path.split('.').reduce((o,k)=>o[k],s);return `<label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px"><input type="checkbox" ${v?'checked':''} ${dis} onchange="setS('${path}',this.checked,'bool')"><span><b>${label}</b><br><span class="small muted">${help||''}</span></span></label>`};
+ const firstOfMonth=iso(new Date(TODAY.getFullYear(),TODAY.getMonth(),1));
+ let h=`<div class="info">These rules come from the association's constitution. When members amend it, change them here. Only the President can change association and loan rules; changes are recorded in the activity log.</div>`;
+ h+=`<div class="card"><h2>Association</h2><div class="grid2">${fld('Name','name')}${fld('Short code (used in member numbers)','shortCode')}${fld('Address','address')}${fld('Currency','currency')}<label class="f">Financial year starts in<select ${dis} onchange="setS('fyStartMonth',this.value,'number')">${MONTHS.map((m,i)=>opt(i+1,m,s.fyStartMonth)).join('')}</select></label></div></div>`;
+ h+=`<div class="card"><h2>Dues &amp; arrears</h2><div class="grid3">${fld('Registration fee','regFee','number','min=0 step=0.01')}${fld('Dues counted as owed from day (of month)','dueDay','number','min=1 max=31')}${fld('Arrears penalty before benefit (%)','penaltyPct','number','min=0')}${fld('Refer to DCRC after (months in arrears)','arrearsFlagMonths','number','min=1')}${fld('Benefit waiting period (months)','waitingMonths','number','min=0')}${fld('Event notice required (days)','noticeDays','number','min=0')}</div>
+ <h2 style="margin-top:8px">Member categories &amp; monthly dues</h2><table><tr><th>Category</th><th class="n">Monthly dues now</th><th>Rate history</th><th>Members</th><th></th></tr>${t.categories.map(c=>`<tr><td><input class="cell" value="${esc(c.name)}" ${dis} onchange="setCat('${c.id}','name',this.value)"></td><td class="n"><input class="cell num" type="number" min="0" step="0.01" value="${c.dues}" ${dis} onchange="setCat('${c.id}','dues',this.value)"></td><td class="small muted">${c.rates.map(r=>`${money(r.amt)} from ${r.from<='2000-12-31'?'start':fd(r.from)}`).join(' → ')}</td><td>${t.members.filter(m=>m.categoryId===c.id).length}</td><td><button class="btn sm ghost" onclick="delCat('${c.id}')">Remove</button></td></tr>`).join('')}</table><button class="btn sm sec" style="margin-top:8px" onclick="addCat()">+ Add category</button>
+ <p class="small muted">Changing a dues amount applies from ${fd(firstOfMonth)}. Earlier months keep the old rate, so past arrears don't change.</p></div>`;
+ h+=`<div class="card"><h2>Welfare benefits</h2>${tog('Benefits are active','benefitsActive','Turn on when members agree benefits can start.')}
+ <div class="tw"><table><tr><th>Benefit / event</th>${t.categories.map(c=>`<th class="n">${esc(c.name)}</th>`).join('')}<th class="n">Max times<br><span class="small">0 = no limit</span></th><th>Note</th><th>Active</th><th></th></tr>
+ ${t.benefitTypes.map(b=>`<tr><td><input class="cell" value="${esc(b.name)}" ${dis} onchange="setBT('${b.id}','name',this.value)"></td>${t.categories.map(c=>`<td class="n"><input class="cell num" type="number" min="0" step="0.01" value="${num(b.amounts[c.id])}" ${dis} onchange="setBTAmt('${b.id}','${c.id}',this.value)"></td>`).join('')}<td class="n"><input class="cell num" style="max-width:70px" type="number" min="0" value="${num(b.maxTimes)}" ${dis} onchange="setBT('${b.id}','maxTimes',this.value)"></td><td><input class="cell" value="${esc(b.note)}" ${dis} onchange="setBT('${b.id}','note',this.value)"></td><td><input type="checkbox" ${b.active?'checked':''} ${dis} onchange="setBT('${b.id}','active',this.checked)"></td><td><button class="btn sm ghost" onclick="delBT('${b.id}')">Remove</button></td></tr>`).join('')}
+ </table></div><button class="btn sm sec" style="margin-top:8px" onclick="addBT()">+ Add benefit</button></div>`;
+ h+=`<div class="card"><h2>Loan scheme</h2>${tog('Loan scheme is active','loansActive','Switch on when the Executive Council judges the fund mature enough.')}
+ <div class="grid3">${fld('Max share of fund lent out (%)','loan.poolPct','number','min=0 max=100')}${fld('Minimum months of membership','loan.minMonths','number','min=0')}${fld('Loan limit = dues paid ×','loan.multiple','number','min=0 step=0.1')}${fld('Flat maximum loan (0 = none)','loan.cap','number','min=0')}${fld('Emergency loan fee (%)','loan.emergencyFeePct','number','min=0 step=0.1')}${fld('General loan fee (%)','loan.generalFeePct','number','min=0 step=0.1')}${fld('Maximum repayment months','loan.maxMonths','number','min=1')}${fld('Guarantors needed above amount','loan.guarantorThreshold','number','min=0')}${fld('Number of guarantors needed','loan.guarantorsRequired','number','min=0')}${fld('Default after (days overdue)','loan.defaultDays','number','min=1')}${fld('Max loans one member may guarantee','loan.maxGuarantees','number','min=1')}</div>
+ ${tog('Deduct unpaid loan balances from benefits','loan.offsetFromBenefits','When a borrower in default receives a benefit, the balance can be taken from it.')}
+ <p class="small muted">Pool rule as built: loans outstanding may not exceed the set % of the whole welfare fund (cash + loans out), and never more than the cash on hand.</p></div>`;
+ h+=`<div class="card"><h2>Data</h2><p class="small muted">Your data is stored online in the KAB Welfare database. Download a backup now and then and keep it safe.</p><div class="row"><button class="btn sec ro-ok" onclick="downloadBackup()">Download backup</button><button class="btn sec" onclick="openingForm()">Enter opening balances</button></div></div>`;
+ return h}
+function setS(path,val,type){const v=type==='number'?num(val):type==='bool'?!!val:val;
+ act(async()=>{if(path.startsWith('loan.')){const k=path.slice(5);await upd('loan_policies',DB.current,{[LOANCOL[k]]:v},'association_id')}else await upd('associations',DB.current,{[SETCOL[path]]:v===''?null:v});
+  await log(`Setting changed: ${path} = ${v}`);if(path==='name'){const a=ME.assocs.find(a=>a.id===DB.current);if(a)a.name=v}},'Saved')}
+function setCat(id,k,v){act(async()=>{const c=T().categories.find(c=>c.id===id);
+ if(k==='name'){await upd('member_categories',id,{name:v});await log(`Category renamed to ${v}`)}
+ else{const from=iso(new Date(TODAY.getFullYear(),TODAY.getMonth(),1));const{error}=await sb.from('dues_rates').upsert({association_id:DB.current,category_id:id,monthly_amount:num(v),effective_from:from},{onConflict:'category_id,effective_from'});if(error)throw error;await log(`Dues for ${c.name} set to ${num(v)} from ${from}`)}},'Saved')}
+function addCat(){act(async()=>{const c=await ins('member_categories',{association_id:DB.current,name:'New category'});await ins('dues_rates',{association_id:DB.current,category_id:c.id,monthly_amount:0,effective_from:'2000-01-01'});await log('Category added')},'Category added')}
+function delCat(id){if(T().members.some(m=>m.categoryId===id)){toast('Move members out of this category first');return}if(T().categories.length<2){toast('At least one category is needed');return}act(async()=>{await delw('member_categories',{id});await log('Category removed')},'Removed')}
+function setBT(id,k,v){const col={name:'name',maxTimes:'max_times',note:'note',active:'active'}[k];act(async()=>{await upd('benefit_types',id,{[col]:k==='maxTimes'?num(v):v});await log(`Benefit ${btype(id).name}: ${k} = ${v}`)},'Saved')}
+function setBTAmt(id,cid,v){act(async()=>{const{error}=await sb.from('benefit_amounts').upsert({benefit_type_id:id,category_id:cid,amount:num(v)},{onConflict:'benefit_type_id,category_id'});if(error)throw error;await log(`Benefit ${btype(id).name}: amount for ${T().categories.find(c=>c.id===cid)?.name} = ${num(v)}`)},'Saved')}
+function addBT(){act(async()=>{await ins('benefit_types',{association_id:DB.current,name:'New benefit',max_times:0,active:true});await log('Benefit type added')},'Benefit added')}
+function delBT(id){if(T().claims.some(c=>c.typeId===id)){toast('Claims use this benefit — untick Active instead');return}act(async()=>{await delw('benefit_types',{id});await log('Benefit type removed')},'Removed')}
+function downloadBackup(){const t=T();const data={exported:new Date().toISOString(),by:ME.email,association:t.settings,categories:t.categories,benefitTypes:t.benefitTypes,members:t.members,payments:t.payments,claims:t.claims,loans:t.loans,expenses:t.expenses};
+ const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${(t.settings.shortCode||'association').replace(/\W+/g,'')}-backup-${iso(TODAY)}.json`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);toast('Backup downloaded')}
+function pgActivity(){header('Activity log');const a=T().audit;return `<div class="card"><p class="small muted">Every change is recorded with who made it — useful for the auditor and the DCRC. Entries cannot be edited or deleted.</p><table><tr><th>When</th><th>Who</th><th>What</th></tr>${a.map(x=>`<tr><td class="small">${new Date(x.t).toLocaleString('en-GB')}</td><td class="small">${esc(x.who)}</td><td>${esc(x.a)}</td></tr>`).join('')}</table></div>`}
+
+/* ================= forms ================= */
+function memberForm(id){const t=T(),m=id?mem(id):null;const pre=(S().shortCode||'MEM').replace(/A$/,'');const nextNo=pre+'-'+String(t.members.length+1).padStart(3,'0');
+ modal(m?'Edit member':'Add member',`<div class="grid2"><label class="f">Full name<input name="name" required value="${esc(m?.name)}"></label><label class="f">Member number<input name="memberNo" required value="${esc(m?.memberNo||nextNo)}"></label>
+ <label class="f">Phone<input name="phone" value="${esc(m?.phone)}"></label><label class="f">Email<input name="email" type="email" value="${esc(m?.email)}"></label>
+ <label class="f">Category<select name="categoryId">${t.categories.map(c=>opt(c.id,c.name+' — '+money(c.dues)+'/month',m?.categoryId)).join('')}</select></label><label class="f">Date joined (dues start)<input name="joinDate" type="date" required value="${m?.joinDate||iso(TODAY)}"></label>
+ <label class="f">Next of kin<input name="nok" value="${esc(m?.nok)}"></label><label class="f">Next of kin phone<input name="nokPhone" value="${esc(m?.nokPhone)}"></label>
+ ${m?`<label class="f">Status<select name="status">${['active','resigned','retired','deceased','exited'].map(s=>opt(s,s[0].toUpperCase()+s.slice(1),m.status)).join('')}</select></label><label class="f">Exit date (if not active)<input name="exitDate" type="date" value="${m.exitDate||''}"></label>`:''}</div>
+ <label class="f">Notes<textarea name="notes" rows="2">${esc(m?.notes)}</textarea></label>${!m&&num(S().regFee)>0?`<label class="small" style="display:block"><input type="checkbox" name="reg"> Record registration fee of ${money(S().regFee)} paid today</label>`:''}
+ ${!m||!m.userId?`<label class="small" style="display:block;margin-top:4px"><input type="checkbox" name="login"> Let this member sign in to see their own statement (uses the email above)</label>`:''}`,async d=>{
+  if(t.members.some(x=>x.memberNo===d.memberNo.trim()&&x.id!==id))return 'That member number is already used.';
+  if(d.status&&d.status!=='active'&&!d.exitDate)return 'Enter the exit date.';
+  if(d.login&&!d.email)return 'Enter an email address to give this member a login.';
+  const rec={full_name:d.name.trim(),member_no:d.memberNo.trim(),phone:d.phone||null,email:d.email||null,category_id:d.categoryId,join_date:d.joinDate,next_of_kin:d.nok||null,next_of_kin_phone:d.nokPhone||null,notes:d.notes||null};
+  let mid=id;
+  if(m){await upd('members',id,{...rec,status:d.status,exit_date:d.status==='active'?null:d.exitDate});await log(`Member updated: ${rec.full_name}`)}
+  else{const nm=await ins('members',{association_id:DB.current,status:'active',...rec});mid=nm.id;
+   if(d.reg)await ins('payments',{association_id:DB.current,member_id:nm.id,type:'registration',amount:num(S().regFee),paid_on:iso(TODAY),channel:'Cash',note:'Registration fee',recorded_by:ME.user.id});
+   await log(`Member added: ${rec.full_name}`)}
+  if(d.login){const{error}=await sb.from('invites').insert({association_id:DB.current,email:d.email.trim().toLowerCase(),role:'member',member_id:mid});if(error&&!/duplicate/i.test(error.message))throw error;await log(`Login invitation for member ${rec.full_name}`)}
+  toast('Member saved')})}
+
+function payForm(memberId,type,loanId){const t=T();
+ modal('Record payment',`<div class="grid2"><label class="f">Member<select name="memberId" id="pMem"><option value="">— None (donation / other) —</option>${memberOptions(memberId,()=>true)}</select></label>
+ <label class="f">Payment type<select name="type" id="pType">${Object.entries(PTYPES).map(([k,v])=>opt(k,v,type||'dues')).join('')}</select></label></div>
+ <div id="pLoanWrap"></div>
+ <div class="grid2"><label class="f">Amount<input name="amount" id="pAmt" type="number" min="0.01" step="0.01" required></label><label class="f">Date<input name="date" type="date" required value="${iso(TODAY)}"></label>
+ <label class="f">Channel<select name="channel">${CHANNELS.map(c=>opt(c,c,'MoMo')).join('')}</select></label><label class="f">Reference (MoMo ID / bank ref)<input name="ref"></label></div>
+ <label class="f">Note<input name="note" placeholder="e.g. Dues for Nov 2026"></label><div id="pHint" class="small muted"></div>`,async d=>{
+  if(['dues','registration','penalty','loan'].includes(d.type)&&!d.memberId)return 'Choose the member for this payment.';
+  if(d.type==='loan'&&!d.loanId)return 'This member has no active loan to repay.';
+  const amount=r2(num(d.amount));if(amount<=0)return 'Enter an amount.';
+  await ins('payments',{association_id:DB.current,member_id:d.memberId||null,type:d.type,loan_id:d.type==='loan'?d.loanId:null,amount,paid_on:d.date,channel:d.channel,reference:d.ref||null,note:d.note||null,recorded_by:ME.user.id});
+  await log(`Payment recorded: ${PTYPES[d.type]} ${money(amount)}${d.memberId?' from '+nameOf(d.memberId):''} (${d.channel} ${d.ref||''})`);toast('Payment saved')});
+ const updF=()=>{const m=mem($('#pMem').value),ty=$('#pType').value;let amt='',hint='';
+  $('#pLoanWrap').innerHTML='';
+  if(m){const d=duesInfo(m);
+   if(ty==='dues'){amt=d.rate;hint=d.arrears>0?`Arrears: ${money(d.arrears)} (${d.arrearsMonths.toFixed(0)} months). Enter a larger amount to cover several months.`:'Member is up to date.'}
+   if(ty==='registration')amt=S().regFee;
+   if(ty==='penalty'){amt=d.penalty;hint=`${S().penaltyPct}% of current arrears ${money(d.arrears)}.`}
+   if(ty==='loan'){const ls=t.loans.filter(l=>l.memberId===m.id&&l.status==='approved'&&loanInfo(l).state!=='repaid');
+    $('#pLoanWrap').innerHTML=ls.length?`<label class="f">Loan<select name="loanId">${ls.map(l=>opt(l.id,`${fd(l.disbursed)} — balance ${money(loanInfo(l).out)}`,loanId)).join('')}</select></label>`:'<div class="err">No active loan for this member.</div>';
+    if(ls.length){const l=ls.find(x=>x.id===loanId)||ls[0];const i=loanInfo(l);amt=r2(Math.min(i.inst,i.out));hint=`Monthly instalment ${money(i.inst)} · balance ${money(i.out)}${i.overdue?' · overdue '+money(i.overdue):''}`}}}
+  $('#pAmt').value=amt;$('#pHint').textContent=hint};
+ $('#pMem').onchange=updF;$('#pType').onchange=updF;updF();}
+
+function bulkDuesForm(){const t=T();const act=t.members.filter(m=>m.status==='active').sort((a,b)=>a.name.localeCompare(b.name));
+ const ym=iso(TODAY).slice(0,7);
+ if(!act.length){toast('Add members first');return}
+ modal('Record monthly dues (standing orders / payroll)',`<div class="grid2"><label class="f">Month<input type="month" name="month" id="bMonth" value="${ym}" required></label><label class="f">Channel<select name="channel">${CHANNELS.map(c=>opt(c,c,'Standing order')).join('')}</select></label>
+ <label class="f">Date received<input type="date" name="date" value="${iso(TODAY)}" required></label><label class="f">Bank statement reference<input name="ref"></label></div>
+ <div class="small muted" style="margin-bottom:4px">Tick members whose dues came in. Amounts can be changed.</div>
+ <div class="gl" id="bList" style="max-height:300px"></div>`,async d=>{
+  const [y,mo]=d.month.split('-');const label=MONTHS[+mo-1].slice(0,3)+' '+y;
+  const rows=act.filter(m=>d['c_'+m.id]&&num(d['a_'+m.id])>0).map(m=>({association_id:DB.current,member_id:m.id,type:'dues',amount:r2(num(d['a_'+m.id])),paid_on:d.date,channel:d.channel,reference:d.ref||null,period_month:d.month+'-01',note:'Dues '+label,recorded_by:ME.user.id}));
+  if(!rows.length)return 'No members ticked.';
+  await ins('payments',rows);await log(`Monthly dues recorded for ${label}: ${rows.length} members, ${money(sum(rows,r=>r.amount))}`);toast(`${rows.length} payments recorded`)},'Record');
+ const draw=()=>{const ymv=$('#bMonth').value;$('#bList').innerHTML=act.map(m=>{const done=t.payments.some(p=>p.memberId===m.id&&p.type==='dues'&&p.period===ymv);return `<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="c_${m.id}" ${done?'':'checked'}><span style="flex:1">${esc(m.name)}${done?' <span class="badge b-ok">already recorded</span>':''}</span><input class="cell num" name="a_${m.id}" type="number" step="0.01" value="${cat(m).dues}"></label>`}).join('')};
+ $('#bMonth').onchange=draw;draw();}
+
+function openingForm(){const t=T();const act=t.members.slice().sort((a,b)=>a.name.localeCompare(b.name));
+ const has=t.payments.some(p=>p.channel==='Opening balance'||p.channel==='Opening cash');
+ modal('Enter opening balances',`${has?'<div class="note">Opening balances have already been entered. Anything you enter now is added on top.</div>':''}
+ <p class="small muted">Use this once, when the association starts using the system, so balances match its books.</p>
+ <div class="grid2"><label class="f">Money in bank + MoMo today<input type="number" name="cash" step="0.01" min="0" value="0"></label><label class="f">As at date<input type="date" name="date" value="${iso(TODAY)}"></label></div>
+ <div class="small muted" style="margin-bottom:4px">Total dues each member paid <b>before</b> today (so arrears are right):</div>
+ <div class="gl" style="max-height:280px">${act.length?act.map(m=>`<label style="display:flex;gap:8px;align-items:center"><span style="flex:1">${esc(m.name)} <span class="small muted">owes ${money(duesInfo(m).owed)} since ${fd(m.joinDate)}</span></span><input class="cell num" name="o_${m.id}" type="number" step="0.01" min="0" value="0"></label>`).join(''):'<span class="muted">Add members first.</span>'}</div>
+ <p class="small muted">Past benefits already paid can be recorded as claims and paid with channel "Opening balance", so one-time limits are respected without changing the cash balance.</p>`,async d=>{
+  const rows=act.filter(m=>num(d['o_'+m.id])>0).map(m=>({association_id:DB.current,member_id:m.id,type:'dues',amount:r2(num(d['o_'+m.id])),paid_on:d.date,channel:'Opening balance',note:'Dues paid before using the system',recorded_by:ME.user.id}));
+  if(num(d.cash)>0)rows.push({association_id:DB.current,member_id:null,type:'other',amount:r2(num(d.cash)),paid_on:d.date,channel:'Opening cash',note:'Opening bank + MoMo balance',recorded_by:ME.user.id});
+  if(!rows.length)return 'Nothing entered.';
+  await ins('payments',rows);await log(`Opening balances entered: cash ${money(d.cash)}, dues for ${rows.length-(num(d.cash)>0?1:0)} members`);toast('Opening balances saved')},'Save')}
+
+function claimForm(memberId){const t=T(),isExec=VIEW.role==='exec';
+ modal(isExec?'New benefit claim':'Request a welfare benefit',`<label class="f">Member<select name="memberId" id="cMem" ${isExec?'':'disabled'}>${memberOptions(memberId)}</select></label>${isExec?'':`<input type="hidden" name="memberId" value="${memberId}">`}
+ <label class="f">Benefit<select name="typeId" id="cType">${t.benefitTypes.filter(b=>b.active).map(b=>opt(b.id,b.name)).join('')}</select></label>
+ <div class="grid2"><label class="f">Date of event<input type="date" name="eventDate" id="cDate" required value="${iso(TODAY)}"></label><label class="f">Details<input name="desc" placeholder="e.g. Death of mother, burial on 12 Dec"></label></div>
+ <div id="cPrev"></div>${isExec?`<label class="small"><input type="checkbox" name="ovr" id="cOvr"> Executive Council override (record the reason)</label><input class="cell" name="ovrWhy" id="cOvrWhy" placeholder="Reason / meeting decision" style="margin-top:4px;display:none">`:''}`,async d=>{
+  const mid=d.memberId||memberId;const m=mem(mid);const ck=benefitCheck(m,d.typeId);
+  if(!ck.ok&&!(isExec&&d.ovr))return 'This claim does not meet the rules: <ul>'+ck.issues.map(i=>'<li>'+esc(i)+'</li>').join('')+'</ul>'+(isExec?'Tick override only if the Executive Council has agreed.':'');
+  if(isExec&&d.ovr&&!(d.ovrWhy||'').trim())return 'Give the reason for the override.';
+  await ins('claims',{association_id:DB.current,member_id:mid,benefit_type_id:d.typeId,event_date:d.eventDate,details:d.desc||null,amount:ck.amount,status:'pending',override_reason:d.ovr?d.ovrWhy:null});
+  await log(`Benefit claim: ${m.name} — ${btype(d.typeId).name} ${money(ck.amount)}${d.ovr?' (override: '+d.ovrWhy+')':''}`);toast(isExec?'Claim recorded — approve it on the Benefits page':'Request sent to the Executive Council')},isExec?'Save claim':'Send request');
+ const updF=()=>{const m=mem($('#cMem').value),ck=benefitCheck(m,$('#cType').value);const ev=pd($('#cDate').value);
+  const late=ev&&(ev-TODAY)/864e5<num(S().noticeDays)&&ev>=TODAY;
+  $('#cPrev').innerHTML=(ck.ok?`<div class="okbox">Eligible. Benefit amount: <b>${money(ck.amount)}</b>${ck.used?` · already received ${ck.used}×`:''}</div>`:`<div class="err"><b>Not eligible yet:</b><ul style="margin:4px 0 0 18px;padding:0">${ck.issues.map(i=>'<li>'+esc(i)+'</li>').join('')}</ul>${ck.amount?'Amount if approved: '+money(ck.amount):''}</div>`)+(late?`<div class="small muted">Note: the constitution asks for ${S().noticeDays} days' notice before an event.</div>`:'')};
+ $('#cMem').onchange=updF;$('#cType').onchange=updF;$('#cDate').onchange=updF;updF();
+ if($('#cOvr'))$('#cOvr').onchange=()=>$('#cOvrWhy').style.display=$('#cOvr').checked?'block':'none';}
+function approveClaim(id){const c=T().claims.find(x=>x.id===id),m=mem(c.memberId);const ck=benefitCheck(m,c.typeId);
+ modal('Approve claim',`<p><b>${esc(m?.name)}</b> — ${esc(btype(c.typeId).name)}</p>${ck.ok||c.override?'':`<div class="err">Current check: ${ck.issues.map(esc).join(' ')}</div>`}
+ <label class="f">Amount to pay (Executive may adjust)<input type="number" name="amount" step="0.01" min="0" value="${c.amount}"></label><label class="f">Approval note / meeting reference<input name="note"></label>`,async d=>{
+  await upd('claims',id,{amount:r2(num(d.amount)),status:'approved',approved_on:iso(TODAY),approved_by:ME.user.id});await log(`Claim approved: ${m?.name} — ${btype(c.typeId).name} ${money(d.amount)} ${d.note?'('+d.note+')':''}`);toast('Approved — now record the payment')},'Approve')}
+function rejectClaim(id){const c=T().claims.find(x=>x.id===id);modal('Reject claim','<label class="f">Reason<input name="why" required></label>',async d=>{await upd('claims',id,{status:'rejected',reject_reason:d.why});await log(`Claim rejected: ${nameOf(c.memberId)} — ${d.why}`)},'Reject')}
+function delClaim(id){confirmBox('Delete this claim?',async()=>{await delw('claims',{id});await log('Claim deleted')},'Delete')}
+function payClaim(id){const t=T(),c=t.claims.find(x=>x.id===id),m=mem(c.memberId),s=S();
+ if(!s.benefitsActive){toast('Benefits are switched off in Settings');return}
+ const L=t.loans.filter(l=>l.memberId===m.id&&l.status==='approved').map(l=>({l,i:loanInfo(l)})).find(x=>x.i.state!=='repaid');
+ const canOff=L&&s.loan.offsetFromBenefits;const sugg=canOff?Math.min(L.i.out,c.amount):0;
+ modal('Pay benefit',`<p><b>${esc(m.name)}</b> — ${esc(btype(c.typeId).name)}: <b>${money(c.amount)}</b></p>
+ <div class="grid2"><label class="f">Date paid<input type="date" name="date" value="${iso(TODAY)}" required></label><label class="f">Channel<select name="channel">${CHANNELS.concat(['Opening balance']).map(x=>opt(x,x==='Opening balance'?'Opening balance (paid before system)':x,'MoMo')).join('')}</select></label></div><label class="f">Reference (MoMo ID / cheque no.)<input name="ref"></label>
+ ${canOff?`<div class="note">${esc(m.name)} has a loan balance of <b>${money(L.i.out)}</b> (${L.i.state}). <label><input type="checkbox" name="off" ${L.i.state==='default'?'checked':''}> Deduct ${money(sugg)} from this benefit to repay the loan</label></div>`:''}`,async d=>{
+  let offset=0;
+  if(canOff&&d.off){offset=r2(sugg);await ins('payments',{association_id:DB.current,member_id:m.id,type:'loan',loan_id:L.l.id,amount:offset,paid_on:d.date,channel:'Benefit offset',note:'Deducted from '+btype(c.typeId).name,recorded_by:ME.user.id})}
+  await upd('claims',id,{status:'paid',paid_on:d.date,channel:d.channel,reference:d.ref||null,loan_offset:offset});
+  await log(`Benefit paid: ${m.name} — ${btype(c.typeId).name} ${money(c.amount)}${offset?' (loan offset '+money(offset)+')':''} via ${d.channel} ${d.ref||''}`);toast('Benefit paid')},'Mark as paid')}
+
+function loanForm(memberId){const t=T(),s=S(),lp=s.loan,isExec=VIEW.role==='exec';
+ modal(isExec?'New loan application':'Apply for a loan',`<label class="f">Member<select name="memberId" id="lMem" ${isExec?'':'disabled'}>${memberOptions(memberId)}</select></label>${isExec?'':`<input type="hidden" name="memberId" value="${memberId}">`}
+ <div class="grid3"><label class="f">Loan type<select name="kind" id="lKind"><option value="general">General hardship (${lp.generalFeePct}% fee)</option><option value="emergency">Acute emergency (${lp.emergencyFeePct}% fee)</option></select></label><label class="f">Amount<input type="number" name="principal" id="lAmt" min="1" step="0.01" required></label><label class="f">Repay over (months)<input type="number" name="months" id="lMon" min="1" max="${lp.maxMonths}" value="${lp.maxMonths}" required></label></div>
+ <label class="f">Purpose<input name="purpose" placeholder="e.g. Hospital bill"></label>
+ <div class="f" style="font-size:12px;color:var(--mute);margin-bottom:10px">Guarantors <span id="lNeed"></span><div class="gl" id="lG"></div></div>
+ <div id="lPrev"></div>${isExec?`<label class="small"><input type="checkbox" name="ovr" id="lOvr"> Executive Council override (record the reason)</label><input class="cell" name="ovrWhy" id="lOvrWhy" placeholder="Reason / meeting decision" style="margin-top:4px;display:none">`:`<p class="small muted">The Executive will confirm that funds are available when they approve.</p>`}`,async(d,f)=>{
+  const mid=d.memberId||memberId,m=mem(mid);const g=new FormData(f).getAll('g');const ck=loanCheck(m,d.principal,d.months,d.kind,g);
+  if(!ck.ok&&!(isExec&&d.ovr))return 'This application does not meet the loan rules: <ul>'+ck.issues.map(i=>'<li>'+esc(i)+'</li>').join('')+'</ul>';
+  if(isExec&&d.ovr&&!(d.ovrWhy||'').trim())return 'Give the reason for the override.';
+  const l=await ins('loans',{association_id:DB.current,member_id:mid,kind:d.kind,principal:r2(num(d.principal)),fee_pct:ck.feePct,fee:ck.fee,total:ck.total,months:num(d.months),purpose:d.purpose||null,status:'pending',applied_on:iso(TODAY),override_reason:d.ovr?d.ovrWhy:null});
+  if(g.length)await ins('loan_guarantors',g.map(x=>({loan_id:l.id,member_id:x})));
+  await log(`Loan application: ${m.name} ${money(d.principal)} over ${d.months} months, guarantors: ${g.map(nameOf).join(', ')||'none'}${d.ovr?' (override: '+d.ovrWhy+')':''}`);toast(isExec?'Application saved — approve it on the Loans page':'Application sent to the Executive Council')},isExec?'Save application':'Send application');
+ const people=()=>VIEW.role==='member'?VIEW.dir.filter(x=>x.status==='active').map(x=>({id:x.id,name:x.full_name})):t.members.filter(m=>m.status==='active').map(m=>({id:m.id,name:m.name}));
+ const drawG=()=>{const mid=$('#lMem').value;const sel=[...document.querySelectorAll('#lG input:checked')].map(x=>x.value);
+  $('#lG').innerHTML=people().filter(p=>p.id!==mid).sort((a,b)=>a.name.localeCompare(b.name)).map(p=>{const gi=gInfo(p.id);return `<label><input type="checkbox" name="g" value="${p.id}" ${sel.includes(p.id)?'checked':''}> ${esc(p.name)} ${gi.good?'':'<span class="badge b-warn">owing</span>'} ${gi.held?`<span class="badge b-mute">guarantees ${gi.held}</span>`:''}</label>`}).join('')||'<span class="muted">No other active members.</span>'};
+ const updF=()=>{const m=mem($('#lMem').value);const g=[...document.querySelectorAll('#lG input:checked')].map(x=>x.value);const ck=loanCheck(m,$('#lAmt').value,$('#lMon').value,$('#lKind').value,g);
+  $('#lNeed').textContent=ck.need?`(${ck.need} needed for this amount)`:'(not needed for this amount)';
+  $('#lPrev').innerHTML=`<div class="small" style="margin-bottom:6px">Limit for this member: <b>${money(ck.max||0)}</b> · Fee ${ck.feePct||0}% = ${money(ck.fee||0)} · Total to repay <b>${money(ck.total||0)}</b> · Monthly <b>${money(ck.inst||0)}</b></div>`+(ck.ok?'<div class="okbox">Meets all loan rules.</div>':`<div class="err"><b>Not yet:</b><ul style="margin:4px 0 0 18px;padding:0">${ck.issues.map(i=>'<li>'+esc(i)+'</li>').join('')}</ul></div>`)};
+ $('#lMem').onchange=()=>{drawG();updF()};$('#lG').onchange=updF;$('#lAmt').oninput=updF;$('#lMon').oninput=updF;$('#lKind').onchange=updF;drawG();updF();
+ if($('#lOvr'))$('#lOvr').onchange=()=>$('#lOvrWhy').style.display=$('#lOvr').checked?'block':'none';}
+function approveLoan(id){const t=T(),l=t.loans.find(x=>x.id===id),m=mem(l.memberId);const ck=loanCheck(m,l.principal,l.months,l.kind,l.guarantors,l.id);
+ const unconf=(l.guarantors||[]).filter(g=>!l.consents[g]);
+ modal('Approve & disburse loan',`<p><b>${esc(m.name)}</b> — ${money(l.principal)} (${l.kind}), repay ${money(l.total)} over ${l.months} months (${money(l.total/l.months)}/month).</p>
+ ${ck.ok||l.override?'<div class="okbox">Still meets the loan rules.</div>':`<div class="err">Rules no longer met: ${ck.issues.map(esc).join(' ')}</div>`}
+ ${unconf.length?`<div class="note">Not yet confirmed in the app by: ${unconf.map(g=>esc(nameOf(g))).join(', ')}. Make sure they have agreed (signed form or in person) before disbursing.</div>`:''}
+ <div class="grid2"><label class="f">Date disbursed<input type="date" name="date" value="${iso(TODAY)}" required></label><label class="f">Channel<select name="channel">${CHANNELS.map(x=>opt(x,x,'MoMo')).join('')}</select></label></div><label class="f">Reference<input name="ref"></label><label class="f">Approval note / meeting reference<input name="note"></label>`,async d=>{
+  if(!ck.ok&&!l.override)return 'Resolve the issues above first, or reject this application.';
+  await upd('loans',id,{status:'approved',approved_on:iso(TODAY),approved_by:ME.user.id,disbursed_on:d.date,channel:d.channel,reference:d.ref||null});
+  await log(`Loan approved & disbursed: ${m.name} ${money(l.principal)} via ${d.channel} ${d.ref||''} ${d.note?'('+d.note+')':''}`);toast('Loan disbursed')},'Approve & disburse')}
+function rejectLoan(id){const l=T().loans.find(x=>x.id===id);modal('Reject loan','<label class="f">Reason<input name="why" required></label>',async d=>{await upd('loans',id,{status:'rejected',reject_reason:d.why});await log(`Loan rejected: ${nameOf(l.memberId)} — ${d.why}`)},'Reject')}
+function delLoan(id){confirmBox('Delete this loan record?',async()=>{await delw('loans',{id});await log('Loan record deleted')},'Delete')}
+function consent(loanId){confirmBox('Confirm that you agree to guarantee this loan? If the borrower defaults, the association may recover the balance from you.',async()=>{const{data,error}=await sb.from('loan_guarantors').update({consented:true,consented_at:new Date().toISOString()}).eq('loan_id',loanId).eq('member_id',VIEW.memberId).select();if(error)throw error;if(!data||!data.length)throw new Error('permission denied');await log(`Guarantee confirmed by ${nameOf(VIEW.memberId)}`);toast('Thank you — guarantee confirmed')},'I agree')}
+function guarantorRecovery(id){const t=T(),l=t.loans.find(x=>x.id===id),i=loanInfo(l),gs=(l.guarantors||[]).map(mem).filter(Boolean);
+ if(!gs.length){toast('This loan has no guarantors');return}const share=r2(i.out/gs.length);
+ modal('Recover from guarantors',`<p>${esc(nameOf(l.memberId))} owes <b>${money(i.out)}</b> and is ${i.days} days overdue. Record what each guarantor paid:</p>${gs.map(g=>`<label class="f">${esc(g.name)}<input type="number" step="0.01" min="0" name="g_${g.id}" value="${share}"></label>`).join('')}<div class="grid2"><label class="f">Date<input type="date" name="date" value="${iso(TODAY)}"></label><label class="f">Channel<select name="channel">${CHANNELS.map(x=>opt(x,x,'MoMo')).join('')}</select></label></div>`,async d=>{
+  const rows=gs.filter(g=>num(d['g_'+g.id])>0).map(g=>({association_id:DB.current,member_id:l.memberId,type:'loan',loan_id:l.id,amount:r2(num(d['g_'+g.id])),paid_on:d.date,channel:d.channel,note:'Paid by guarantor '+g.name,recorded_by:ME.user.id}));
+  if(!rows.length)return 'Enter at least one amount.';await ins('payments',rows);await log(`Guarantor recovery on ${nameOf(l.memberId)}'s loan: ${money(sum(rows,r=>r.amount))}`);toast('Recovery recorded')},'Record')}
+function expenseForm(){modal('Record expense',`<label class="f">Description<input name="desc" required></label><div class="grid3"><label class="f">Amount<input type="number" name="amount" min="0.01" step="0.01" required></label><label class="f">Date<input type="date" name="date" value="${iso(TODAY)}" required></label><label class="f">Category<select name="category">${['Administration','Bank charges','Meetings','CSR / events','Gifts','Other'].map(c=>opt(c,c)).join('')}</select></label></div>`,async d=>{await ins('expenses',{association_id:DB.current,spent_on:d.date,description:d.desc,amount:r2(num(d.amount)),category:d.category,recorded_by:ME.user.id});await log(`Expense: ${d.desc} ${money(d.amount)}`);toast('Expense saved')})}
+function delPayment(id){const p=T().payments.find(x=>x.id===id);confirmBox('Delete this payment? Balances will be recalculated.',async()=>{await delw('payments',{id});await log(`Payment deleted: ${PTYPES[p.type]} ${money(p.amount)} ${p.memberId?'('+nameOf(p.memberId)+')':''}`)},'Delete')}
+function delExpense(id){confirmBox('Delete this expense?',async()=>{await delw('expenses',{id});await log('Expense deleted')},'Delete')}
+
+/* ---- new association (KAB Tech admin) ---- */
+const HMPSA_TEMPLATE={name:'Highly Motivated Professional Society Association',short_code:'HMPSA',address:'P.O. Box 52, Hwidiem, Asante Akyem',currency:'GHS',fy_start_month:9,due_day:28,reg_fee:0,penalty_pct:50,arrears_flag_months:2,waiting_months:0,notice_days:30,benefits_active:false,loans_active:false,
+ loan:{pool_pct:40,min_months:6,multiple_of_dues:2,flat_cap:1000,emergency_fee_pct:0,general_fee_pct:3,max_months:6,guarantor_threshold:300,guarantors_required:2,default_days:60,max_guarantees:2,offset_from_benefits:true},
+ categories:[{key:'pro',name:'Professional',dues:30},{key:'nss',name:'National Service / NABCO',dues:15}],
+ benefits:[{name:'Bereavement of a parent',amounts:{pro:700,nss:350}},{name:'Bereavement of a spouse (non-member)',amounts:{pro:700,nss:350}},{name:'Bereavement of a child',max_times:1,note:'One time',amounts:{pro:500,nss:250}},{name:'Marriage of a member',amounts:{pro:700,nss:350}},{name:'Marriage — both spouses are members',amounts:{pro:1400,nss:700}},{name:'Childbirth',max_times:1,note:'One time',amounts:{pro:100,nss:50}},
+  {name:'Bereavement of a member',note:'Amount not yet set (Art. 21G)',amounts:{}},{name:'Bereavement of a spouse who is a member',note:'Amount not yet set (Art. 21G)',amounts:{}},{name:'End of service / Retirement',note:'Amount not yet set (Art. 21G)',amounts:{}},{name:'Emergency (accident, hospitalisation, robbery)',note:'Amount not yet set (Art. 21G)',amounts:{}},{name:'Professional development',note:'Amount not yet set (Art. 21G)',amounts:{}}]};
+function newTenantForm(){modal('Set up a new association',`<p class="small muted">Each association gets its own members, money, rules and logins.</p>
+ <label class="f">Start from<select name="tpl" id="nTpl"><option value="blank">Blank — I'll enter the rules</option><option value="hmpsa">HMPSA constitution (dues, benefit table, credit scheme)</option></select></label>
+ <label class="f">Association name<input name="name" id="nName" required placeholder="e.g. Agogo Teachers Welfare Association"></label><div class="grid3"><label class="f">Short code<input name="code" id="nCode" placeholder="e.g. ATWA"></label><label class="f">Monthly dues<input type="number" name="dues" id="nDues" step="0.01" min="0" value="20"></label><label class="f">Currency<input name="cur" value="GHS"></label></div>`,async d=>{
+  let cfg;if(d.tpl==='hmpsa')cfg={...HMPSA_TEMPLATE,name:d.name.trim(),short_code:d.code.trim()||'HMPSA'};
+  else cfg={name:d.name.trim(),short_code:d.code.trim(),currency:d.cur||'GHS',fy_start_month:1,due_day:28,penalty_pct:0,benefits_active:false,loans_active:false,categories:[{key:'m',name:'Member',dues:num(d.dues)}],benefits:[]};
+  const id=await q(sb.rpc('create_association',{cfg}));
+  await refreshMe();await switchTenant(id);go('settings');toast('Association created — check its rules')},'Create');
+ $('#nTpl').onchange=e=>{if(e.target.value==='hmpsa'){$('#nName').value=HMPSA_TEMPLATE.name;$('#nCode').value='HMPSA';$('#nDues').value=30}}}
+
+/* ================= auth & boot ================= */
+function show(id){['#loading','#auth','#app'].forEach(s=>$(s).classList.toggle('hidden',s!==id));if(id!=='#auth'){$('#authForm').innerHTML='';$('#authMsg').innerHTML=''}}
+function authScreen(mode,msg){show('#auth');const f=$('#authForm');$('#authMsg').innerHTML=msg||'';
+ const L=$('#authLinks');
+ if(mode==='login'){$('#authSub').textContent='Sign in to your association';
+  f.innerHTML=`<label class="f">Email<input type="email" name="email" required autocomplete="email"></label><label class="f">Password<input type="password" name="password" required autocomplete="current-password"></label><button class="btn" style="width:100%">Sign in</button>`;
+  L.innerHTML=`<a onclick="authScreen('signup')">Create account</a><a onclick="authScreen('forgot')">Forgot password?</a>`;
+  f.onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(f));busyAuth(true);const{data,error}=await sb.auth.signInWithPassword({email:d.email.trim(),password:d.password});busyAuth(false);if(error)return authMsg(friendly(error),'err');await afterLogin(data.user)}}
+ if(mode==='signup'){$('#authSub').textContent='Create your account — use the email your association invited';
+  f.innerHTML=`<label class="f">Full name<input name="name" required></label><label class="f">Email<input type="email" name="email" required autocomplete="email"></label><label class="f">Choose a password (at least 6 characters)<input type="password" name="password" required minlength="6" autocomplete="new-password"></label><button class="btn" style="width:100%">Create account</button>`;
+  L.innerHTML=`<a onclick="authScreen('login')">I already have an account</a>`;
+  f.onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(f));busyAuth(true);const{data,error}=await sb.auth.signUp({email:d.email.trim(),password:d.password,options:{data:{full_name:d.name},emailRedirectTo:location.origin+location.pathname}});busyAuth(false);
+   if(error)return authMsg(friendly(error),'err');if(data.session)return afterLogin(data.user);authScreen('login',`<div class="okbox">Account created. We sent a confirmation link to <b>${esc(d.email)}</b>. Open it, then sign in here.</div>`)}}
+ if(mode==='forgot'){$('#authSub').textContent='Reset your password';
+  f.innerHTML=`<label class="f">Email<input type="email" name="email" required></label><button class="btn" style="width:100%">Send reset link</button>`;
+  L.innerHTML=`<a onclick="authScreen('login')">Back to sign in</a>`;
+  f.onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(f));busyAuth(true);const{error}=await sb.auth.resetPasswordForEmail(d.email.trim(),{redirectTo:location.origin+location.pathname});busyAuth(false);if(error)return authMsg(friendly(error),'err');authMsg('If that email has an account, a reset link is on its way.','okbox')}}
+ if(mode==='reset'){$('#authSub').textContent='Choose a new password';
+  f.innerHTML=`<label class="f">New password<input type="password" name="password" required minlength="6" autocomplete="new-password"></label><button class="btn" style="width:100%">Save password</button>`;L.innerHTML='';
+  f.onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(f));busyAuth(true);const{data,error}=await sb.auth.updateUser({password:d.password});busyAuth(false);if(error)return authMsg(friendly(error),'err');history.replaceState(null,'',location.pathname);await afterLogin(data.user)}}
+}
+function authMsg(m,cls){$('#authMsg').innerHTML=`<div class="${cls||'err'}">${esc(m)}</div>`}
+function busyAuth(b){$('#authForm').classList.toggle('busy',b)}
+async function refreshMe(){const[adm,roles,assocs]=await Promise.all([sb.rpc('is_platform_admin'),sb.from('association_users').select('*').eq('user_id',ME.user.id),sb.from('associations').select('id,name,short_code').order('name')]);
+ if(roles.error)throw roles.error;if(assocs.error)throw assocs.error;ME.admin=!!adm.data;ME.roles=roles.data||[];ME.assocs=assocs.data||[]}
+async function afterLogin(user){ME.user=user;ME.email=user.email;show('#loading');
+ try{await sb.rpc('accept_invites');await refreshMe()}catch(e){console.error(e);return authScreen('login',`<div class="err">${esc(friendly(e))}</div>`)}
+ if(!ME.assocs.length){show('#app');DB={current:null,tenants:{}};$('#nav').innerHTML='';$('#tenantWrap').style.display='none';$('#newTenantBtn').style.display=ME.admin?'':'none';$('#meEmail').textContent=ME.email;$('#meRole').textContent=ME.admin?'KAB Tech admin':'';
+  $('#top').innerHTML='<h1>Welcome</h1>';$('#view').innerHTML=ME.admin?`<div class="card"><h2>No associations yet</h2><p>Create the first one to begin.</p><button class="btn" onclick="newTenantForm()">+ New association</button></div>`:`<div class="note">Your account (<b>${esc(ME.email)}</b>) is not linked to an association yet. Ask your association's President to invite this email address, then sign out and sign in again.</div>`;return}
+ let last=null;try{last=localStorage.getItem('kabw_last')}catch(e){}
+ await switchTenant(ME.assocs.some(a=>a.id===last)?last:ME.assocs[0].id)}
+async function switchTenant(aid){DB.current=aid;try{localStorage.setItem('kabw_last',aid)}catch(e){}
+ const rs=myRole();const mrow=ME.roles.find(r=>r.association_id===aid&&r.role==='member');
+ VIEW.myMemberId=(ME.roles.find(r=>r.association_id===aid&&r.member_id)||{}).member_id||null;
+ if(ME.admin||rs.some(r=>EXEC_ROLES.includes(r))){VIEW.role='exec';VIEW.readonly=false}
+ else if(rs.some(r=>r==='dcrc'||r==='auditor')){VIEW.role='exec';VIEW.readonly=true}
+ else if(mrow){VIEW.role='member';VIEW.readonly=false;VIEW.memberId=mrow.member_id}
+ show('#loading');
+ try{await reload()}catch(e){console.error(e);show('#app');$('#view').innerHTML=`<div class="err">${esc(friendly(e))}</div>`;return}
+ VIEW.reportMember=null;show('#app');
+ if(VIEW.role==='member')location.hash='mine';else if(!location.hash||location.hash==='#mine')location.hash='dashboard';
+ render()}
+async function boot(){
+ if(window.MOCK_SB)sb=window.MOCK_SB;
+ else if(window.supabase&&window.supabase.createClient)sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+ else{show('#auth');$('#authForm').innerHTML='';authMsg("Couldn't load the app. Check your internet connection and refresh the page.",'err');return}
+ const isRecovery=/type=recovery/.test(location.hash);
+ sb.auth.onAuthStateChange((ev)=>{if(ev==='PASSWORD_RECOVERY')authScreen('reset');if(ev==='SIGNED_OUT')authScreen('login')});
+ const{data:{session}}=await sb.auth.getSession();
+ if(isRecovery&&session)return authScreen('reset');
+ if(!session)return authScreen('login');
+ await afterLogin(session.user)}
+$('#tenantSel').onchange=e=>switchTenant(e.target.value);
+$('#newTenantBtn').onclick=newTenantForm;
+$('#signOut').onclick=async e=>{e.preventDefault();await sb.auth.signOut();DB={current:null,tenants:{}};history.replaceState(null,'',location.pathname);authScreen('login')};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+window.addEventListener('hashchange',()=>{if(/access_token|type=recovery/.test(location.hash))return;render()});
+boot();
+</script>
+</body>
+</html>
