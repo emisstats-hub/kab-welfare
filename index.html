@@ -285,7 +285,7 @@ function render(){
 
 /* ================= modal ================= */
 function modal(title,html,onOk,okLabel){
- $('#mTitle').textContent=title;$('#mBody').innerHTML=html;$('#mErr').innerHTML='';
+ $('#mTitle').textContent=title;$('#mBody').innerHTML=html;$('#mErr').innerHTML='';$('#modal .box').style.maxWidth='';
  $('#mOk').textContent=okLabel||'Save';$('#mOk').style.display=onOk?'':'none';$('#mOk').disabled=false;
  $('#modal').classList.remove('hidden');
  const f=$('#mForm');
@@ -322,7 +322,7 @@ function pgDashboard(){
  const cover=expected?pool.cash/expected:0;
  let h='';
  if(!t.members.length||!t.payments.length)h+=`<div class="card"><h2>Getting started</h2><ol style="margin:0;padding-left:20px;line-height:1.9">
-  <li>${t.members.length?'✓ ':''}<a href="#members">Add the members</a> (name, category, date joined)</li>
+  <li>${t.members.length?'✓ ':''}<a href="#members">Add the members</a> one by one, or <a href="#" onclick="importForm();return false">import them from an Excel list</a></li>
   <li>${t.payments.length?'✓ ':''}<a href="#" onclick="openingForm();return false">Enter opening balances</a>: money already in the bank/MoMo and dues each member paid before using this system</li>
   <li><a href="#users">Invite the executives</a> so they can sign in</li>
   <li><a href="#settings">Check the rules</a> (benefit amounts, loan settings) and switch benefits on when agreed</li></ol></div>`;
@@ -349,7 +349,7 @@ function fundBar(p){const tot=Math.max(p.fund,1);const w=x=>Math.max(0,Math.min(
  return `<div style="display:flex;height:18px;border-radius:6px;overflow:hidden;background:#eef1f0"><div title="Loans out" style="width:${w(p.outP)}%;background:#d9a441"></div><div title="Still lendable" style="width:${w(p.avail)}%;background:#7cc2b4"></div><div title="Welfare reserve" style="flex:1;background:#0f6b5c"></div></div>
  <div class="row small muted" style="margin-top:6px"><span>▇ <span style="color:#d9a441">Loans out ${money(p.outP)}</span></span><span>▇ <span style="color:#3c9a88">Still lendable ${money(p.avail)}</span></span><span>▇ <span style="color:#0f6b5c">Welfare reserve</span></span></div>`}
 
-function pgMembers(){const t=T();header('Members',`<button class="btn" onclick="memberForm()">Add member</button>`);
+function pgMembers(){const t=T();header('Members',`<button class="btn" onclick="memberForm()">Add member</button><button class="btn sec" onclick="importForm()">Import from Excel</button><button class="btn ghost ro-ok" onclick="downloadMembers()">Download list</button>`);
  const qq=VIEW.memberSearch.toLowerCase();
  const rows=t.members.filter(m=>!qq||(m.name+m.memberNo+m.phone).toLowerCase().includes(qq)).sort((a,b)=>a.memberNo.localeCompare(b.memberNo,undefined,{numeric:true}));
  return `<div class="card"><div class="row" style="margin-bottom:10px"><input class="cell" style="max-width:280px" placeholder="Search name, number or phone" value="${esc(VIEW.memberSearch)}" oninput="VIEW.memberSearch=this.value;clearTimeout(window._ms);window._ms=setTimeout(()=>{render();const i=document.querySelector('#view input');i.focus();i.setSelectionRange(i.value.length,i.value.length)},250)"><span class="muted small">${rows.length} of ${t.members.length} members</span></div>
@@ -515,10 +515,138 @@ function downloadBackup(){const t=T();const data={exported:new Date().toISOStrin
 function pgActivity(){header('Activity log');const a=T().audit;return `<div class="card"><p class="small muted">Every change is recorded with who made it — useful for the auditor and the DCRC. Entries cannot be edited or deleted.</p><table><tr><th>When</th><th>Who</th><th>What</th></tr>${a.map(x=>`<tr><td class="small">${new Date(x.t).toLocaleString('en-GB')}</td><td class="small">${esc(x.who)}</td><td>${esc(x.a)}</td></tr>`).join('')}</table></div>`}
 
 /* ================= forms ================= */
+/* ---- import members from Excel / CSV ---- */
+let XLSX_P=null;
+function loadXLSX(){if(window.XLSX)return Promise.resolve();if(XLSX_P)return XLSX_P;
+ XLSX_P=new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=()=>res();s.onerror=()=>{XLSX_P=null;rej(new Error("Couldn't load the Excel reader. Check your internet connection and try again."))};document.head.appendChild(s)});return XLSX_P}
+const IMP_FIELDS=[['memberNo','Member number'],['name','Full name'],['first','First name(s)'],['last','Surname'],['phone','Phone'],['email','Email'],['category','Category'],['joined','Date joined'],['kin','Next of kin'],['kinPhone','Next of kin phone'],['opening','Dues paid before (opening balance)'],['notes','Notes']];
+function guessField(h,used){const s=String(h||'').toLowerCase().replace(/\s+/g,' ').trim();if(!s)return null;
+ const kin=/kin|next of|beneficiar/.test(s),ph=/phone|tel|mobile|contact|momo|cell/.test(s);
+ const tests=[['kinPhone',kin&&ph],['kin',kin],['email',/e-?mail/.test(s)],['memberNo',/(member|membership|mem|staff|reg|registration)\b.*\b(no|num|number|id|code)|^(no|number|id|member no)\.?$/.test(s)],
+  ['first',/^first|given|other ?names?|forename/.test(s)],['last',/surname|last ?name|family name/.test(s)],['phone',ph],
+  ['opening',/dues.*(paid|before|total|amount|to date)|amount ?paid|total ?paid|contribution|paid so far|arrears paid/.test(s)],
+  ['joined',/join|admi|enrol|register|start|date/.test(s)&&!/birth|dob/.test(s)],['category',/categ|type|class|group|grade|level/.test(s)],['notes',/note|remark|comment/.test(s)],['name',/name/.test(s)]];
+ for(const[f,ok]of tests)if(ok&&!used.has(f))return f;return null}
+function impDate(v){if(v==null||v==='')return '';
+ if(v instanceof Date&&!isNaN(v))return iso(new Date(v.getTime()+12*3600e3));
+ if(typeof v==='number'){if(v>20000&&v<80000){const d=new Date(Math.round((v-25569)*864e5));return iso(new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()))}if(v>1950&&v<2100)return v+'-01-01';return null}
+ let s=String(v).trim().replace(/(\d)(st|nd|rd|th)\b/gi,'$1').replace(/,/g,' ').replace(/\s+/g,' ');let m;
+ const mk=(y,mo,d)=>{y=+y;if(y<100)y+=2000;mo=+mo;d=+d;if(mo<1||mo>12||d<1||d>31)return null;const x=new Date(y,mo-1,d);return x.getMonth()===mo-1?iso(x):null};
+ if(m=s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/))return mk(m[1],m[2],m[3]);
+ if(m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})$/))return mk(m[3],m[2],m[1]);   // Ghana: day first
+ const MN=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+ if(m=s.match(/^(?:(\d{1,2}) )?([a-z]{3,9})\.? (?:(\d{1,2}) )?(\d{4})$/i)){const k=MN.indexOf(m[2].slice(0,3).toLowerCase());if(k>=0)return mk(m[4],k+1,m[1]||m[3]||1)}
+ if(m=s.match(/^(\d{4})$/))return m[1]+'-01-01';
+ if(m=s.match(/^(\d{1,2})[-\/.](\d{4})$/))return mk(m[2],m[1],1);
+ return null}
+function impPhone(v){let s=String(v??'').trim();if(!s)return '';if(/e\+/i.test(s))s=Number(s).toFixed(0);s=s.replace(/[^\d+]/g,'');if(/^\d{9}$/.test(s))s='0'+s;return s}
+function impCat(txt,cats){const t=String(txt||'').toLowerCase().trim();if(!t)return null;
+ let c=cats.find(c=>c.name.toLowerCase()===t)||cats.find(c=>c.name.toLowerCase().includes(t)||t.includes(c.name.toLowerCase()));
+ if(!c&&/nss|national service|nabco|service personnel/.test(t))c=cats.find(c=>/national|nss|nabco|service/i.test(c.name));
+ if(!c&&/prof|teacher|staff|permanent|full/.test(t))c=cats.find(c=>/prof/i.test(c.name));
+ if(!c){const w=t.split(/[^a-z]+/).filter(x=>x.length>=4);c=cats.find(c=>w.some(x=>c.name.toLowerCase().includes(x)))}
+ return c||null}
+function defaultCatId(){const t=T();if(!t.categories.length)return '';const cnt={};t.members.forEach(m=>cnt[m.categoryId]=(cnt[m.categoryId]||0)+1);
+ const best=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];if(best&&t.categories.some(c=>c.id===best[0]))return best[0];
+ return t.categories.slice().sort((a,b)=>b.dues-a.dues)[0].id}
+const normName=s=>String(s||'').toLowerCase().replace(/[^a-z]/g,'');
+function importForm(){const t=T();
+ modal('Import members from Excel',`<div class="info small">Upload an Excel (.xlsx / .xls) or CSV file with <b>one member per row</b> and column headings in the first row. Only a name is required; everything else is optional. Nothing is saved until you click <b>Import</b>. <a href="#" onclick="downloadTemplate();return false">Download a template</a></div>
+ <label class="f">Excel or CSV file<input type="file" id="impFile" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"></label>
+ <div id="impArea"></div>`,async()=>doImport(),'Import');
+ $('#modal .box').style.maxWidth='960px';window._imp=null;
+ $('#impFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#impArea').innerHTML='<p class="muted">Reading the file…</p>';$('#mErr').innerHTML='';
+  try{await loadXLSX();let wb;if(/\.(csv|txt)$/i.test(f.name)){const txt=await f.text();wb=XLSX.read(txt.replace(/^\ufeff/,''),{type:'string',raw:true})}else{const buf=await f.arrayBuffer();wb=XLSX.read(buf,{type:'array',cellDates:true})}
+   window._imp={wb,file:f.name,sheet:wb.SheetNames[0]};impLoadSheet();}catch(err){console.error(err);$('#impArea').innerHTML=`<div class="err">${esc(err.message||"That file couldn't be read. Save it as .xlsx or .csv and try again.")}</div>`}}}
+function impLoadSheet(){const I=window._imp;const ws=I.wb.Sheets[I.sheet];
+ let rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''}).map(r=>r.map(c=>typeof c==='string'?c.trim():c));
+ let hi=0,best=-1;rows.slice(0,10).forEach((r,i)=>{const used=new Set();let n=0;r.forEach(c=>{if(typeof c==='string'){const g=guessField(c,used);if(g){used.add(g);n++}}});if(n>best){best=n;hi=i}});
+ I.headers=(rows[hi]||[]).map((h,i)=>String(h||'').trim()||('Column '+(i+1)));
+ I.rows=rows.slice(hi+1).filter(r=>r.some(c=>String(c).trim()!==''));
+ const used=new Set();I.map={};I.headers.forEach((h,i)=>{const g=guessField(h,used);if(g){used.add(g);I.map[g]=i}});
+ if(I.map.name!==undefined&&(I.map.first!==undefined||I.map.last!==undefined)){delete I.map.first;delete I.map.last}
+ impRender()}
+function impRender(){const I=window._imp,t=T();
+ const colOpts=f=>`<option value="">— not in file —</option>`+I.headers.map((h,i)=>opt(i,h,I.map[f])).join('');
+ const firstJoin=t.members.length?t.members.map(m=>m.joinDate).sort()[0]:iso(TODAY);
+ $('#impArea').innerHTML=`${I.wb.SheetNames.length>1?`<label class="f">Sheet<select id="impSheet">${I.wb.SheetNames.map(n=>opt(n,n,I.sheet)).join('')}</select></label>`:''}
+ <div class="small muted" style="margin-bottom:6px"><b>${esc(I.file)}</b>: ${I.rows.length} row(s) found. Check that each item below points to the right column:</div>
+ <div class="grid3" id="impMap">${IMP_FIELDS.map(([f,l])=>`<label class="f">${l}<select data-f="${f}">${colOpts(f)}</select></label>`).join('')}</div>
+ <div class="grid3"><label class="f">Category when blank or not recognised<select id="impDefCat">${t.categories.map(c=>opt(c.id,c.name,I.defCat||defaultCatId())).join('')}</select></label>
+ <label class="f">Date joined when blank<input type="date" id="impDefDate" value="${I.defDate||firstJoin}"></label>
+ <label class="f">If a member is already in the system<select id="impMode">${opt('skip','Skip them (keep what is there)',I.mode)}${opt('update','Update their details from the file',I.mode)}</select></label></div>
+ <label class="small" style="display:block;margin-bottom:8px"><input type="checkbox" id="impLogin" ${I.login?'checked':''}> Give every member who has an email a login to see their own statement</label>
+ <div id="impPrev"></div>`;
+ if($('#impSheet'))$('#impSheet').onchange=e=>{I.sheet=e.target.value;impLoadSheet()};
+ $('#impMap').onchange=e=>{const f=e.target.dataset.f;if(!f)return;if(e.target.value==='')delete I.map[f];else I.map[f]=+e.target.value;impPreview()};
+ ['impDefCat','impDefDate','impMode','impLogin'].forEach(id=>$('#'+id).onchange=()=>impPreview());
+ impPreview()}
+function impParse(){const I=window._imp,t=T(),cats=t.categories;
+ I.defCat=$('#impDefCat').value;I.defDate=$('#impDefDate').value;I.mode=$('#impMode').value;I.login=$('#impLogin').checked;
+ const get=(r,f)=>I.map[f]===undefined?'':r[I.map[f]];
+ const byNo=new Map(t.members.map(m=>[m.memberNo.toLowerCase(),m])),byName=new Map(t.members.map(m=>[normName(m.name),m]));
+ const seenNo=new Set(),seenName=new Set();
+ const pre=(S().shortCode||'MEM').replace(/A$/,'');
+ const taken=new Set(t.members.map(m=>m.memberNo.toLowerCase()));I.rows.forEach(r=>{const v=String(get(r,'memberNo')??'').trim();if(v)taken.add(v.toLowerCase())});
+ const tail=v=>{const k=parseInt(String(v).replace(/^.*?(\d+)$/,'$1'));return isNaN(k)?0:k};
+ let seq=Math.max(0,...[...taken].map(tail));
+ const nextNo=()=>{let c;do{seq++;c=pre+'-'+String(seq).padStart(3,'0')}while(taken.has(c.toLowerCase()));taken.add(c.toLowerCase());return c};
+ return I.rows.map((r,i)=>{const out={line:i+1,issues:[],warn:[]};
+  let name=String(get(r,'name')||'').trim();if(!name)name=[get(r,'first'),get(r,'last')].map(x=>String(x||'').trim()).filter(Boolean).join(' ');
+  out.name=name.replace(/\s+/g,' ');
+  if(!out.name)out.issues.push('No name');
+  let no=String(get(r,'memberNo')??'').trim();if(typeof get(r,'memberNo')==='number')no=String(get(r,'memberNo'));out.memberNo=no;
+  out.phone=impPhone(get(r,'phone'));
+  const em=String(get(r,'email')||'').trim();if(em&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em))out.warn.push('Email looks wrong, left out');else out.email=em.toLowerCase();
+  const ct=get(r,'category');const c=impCat(ct,cats);if(String(ct||'').trim()&&!c)out.warn.push(`Category "${ct}" not recognised, using default`);out.cat=c||cats.find(x=>x.id===I.defCat);out.catGiven=!!c;
+  const jd=get(r,'joined');const d=impDate(jd);if(d===null){out.issues.push(`Date joined "${jd}" not understood`)}else{out.joinDate=d||I.defDate;out.dateGiven=!!d;if(pd(out.joinDate)>TODAY)out.issues.push('Date joined is in the future')}
+  out.kin=String(get(r,'kin')||'').trim();out.kinPhone=impPhone(get(r,'kinPhone'));out.notes=String(get(r,'notes')||'').trim();
+  const op=get(r,'opening');out.opening=op===''?0:r2(num(String(op).replace(/[^\d.\-]/g,'')));if(out.opening<0){out.issues.push('Negative amount');out.opening=0}
+  const ex=(no&&byNo.get(no.toLowerCase()))||byName.get(normName(out.name));
+  if(out.name&&(seenName.has(normName(out.name))||(no&&seenNo.has(no.toLowerCase()))))out.issues.push('Appears twice in the file');
+  if(out.name)seenName.add(normName(out.name));if(no)seenNo.add(no.toLowerCase());
+  if(out.issues.length)out.status='error';else if(ex){out.existing=ex;out.status=I.mode==='update'?'update':'skip'}else{out.status='new';if(!out.memberNo){out.memberNo=nextNo();out.autoNo=true}else if(byNo.has(out.memberNo.toLowerCase())){out.issues.push('Member number already used by '+byNo.get(out.memberNo.toLowerCase()).name);out.status='error'}}
+  return out})}
+function impPreview(){const rows=impParse();window._imp.parsed=rows;
+ const n=s=>rows.filter(r=>r.status===s).length;const opening=sum(rows.filter(r=>r.status==='new'),r=>r.opening);
+ const B={new:'<span class="badge b-ok">New</span>',update:'<span class="badge b-pri">Update</span>',skip:'<span class="badge b-mute">Already in system</span>',error:'<span class="badge b-bad">Problem</span>'};
+ $('#impPrev').innerHTML=`<div class="row" style="margin-bottom:6px"><span class="badge b-ok">${n('new')} new</span>${n('update')?`<span class="badge b-pri">${n('update')} to update</span>`:''}${n('skip')?`<span class="badge b-mute">${n('skip')} already in system (skipped)</span>`:''}${n('error')?`<span class="badge b-bad">${n('error')} with problems (not imported)</span>`:''}${opening?`<span class="small muted">Opening dues for new members: ${money(opening)}</span>`:''}</div>
+ <div class="tw" style="max-height:330px;overflow:auto;border:1px solid var(--line);border-radius:8px"><table><tr><th>#</th><th>Status</th><th>No.</th><th>Name</th><th>Phone</th><th>Category</th><th>Joined</th><th class="n">Dues paid before</th><th>Notes</th></tr>
+ ${rows.slice(0,500).map(r=>`<tr><td class="small muted">${r.line}</td><td>${B[r.status]}</td><td>${esc(r.memberNo)}${r.autoNo?' <span class="small muted">(auto)</span>':''}</td><td>${esc(r.name)||'<span class="muted">—</span>'}${r.email?`<div class="small muted">${esc(r.email)}</div>`:''}</td><td>${esc(r.phone)}</td><td>${esc(r.cat?.name)}${r.catGiven?'':' <span class="small muted">(default)</span>'}</td><td>${r.joinDate?fd(r.joinDate):''}${r.joinDate&&!r.dateGiven?' <span class="small muted">(default)</span>':''}</td><td class="n">${r.opening?money(r.opening):''}${r.opening&&r.status!=='new'?'<div class="small muted">not added</div>':''}</td><td class="small" style="color:${r.issues.length?'var(--bad)':'var(--warn)'}">${esc(r.issues.concat(r.warn).join('; '))}</td></tr>`).join('')}</table></div>
+ ${n('update')?'<p class="small muted">Updating changes only details that are filled in on the file. Opening dues are only added for new members, so nothing is counted twice.</p>':''}`}
+async function doImport(){const I=window._imp;if(!I||!I.parsed)return 'Choose a file first.';
+ const rows=impParse();const nw=rows.filter(r=>r.status==='new'),up=rows.filter(r=>r.status==='update');
+ if(!nw.length&&!up.length)return 'There is nothing to import. Check the rows marked "Problem", or choose "Update their details" for members already in the system.';
+ const aid=DB.current;let added=[],msgs=[];
+ for(let i=0;i<nw.length;i+=200){const chunk=nw.slice(i,i+200).map(r=>({association_id:aid,status:'active',member_no:r.memberNo,full_name:r.name,phone:r.phone||null,email:r.email||null,category_id:r.cat.id,join_date:r.joinDate,next_of_kin:r.kin||null,next_of_kin_phone:r.kinPhone||null,notes:r.notes||null}));
+  added=added.concat(await ins('members',chunk))}
+ let upd_n=0;for(const r of up){const p={};if(I.map.memberNo!==undefined&&r.memberNo&&r.existing.memberNo.toLowerCase()===r.memberNo.toLowerCase()&&r.name)p.full_name=r.name;
+  if(r.phone)p.phone=r.phone;if(r.email)p.email=r.email;if(r.catGiven)p.category_id=r.cat.id;if(r.dateGiven)p.join_date=r.joinDate;if(r.kin)p.next_of_kin=r.kin;if(r.kinPhone)p.next_of_kin_phone=r.kinPhone;if(r.notes)p.notes=r.notes;
+  if(Object.keys(p).length){await upd('members',r.existing.id,p);upd_n++}}
+ const idByNo=new Map(added.map(m=>[String(m.member_no).toLowerCase(),m.id]));
+ const pays=nw.filter(r=>r.opening>0&&idByNo.get(r.memberNo.toLowerCase())).map(r=>({association_id:aid,member_id:idByNo.get(r.memberNo.toLowerCase()),type:'dues',amount:r.opening,paid_on:iso(TODAY),channel:'Opening balance',note:'Dues paid before using the system (imported)',recorded_by:ME.user.id}));
+ if(pays.length){try{await ins('payments',pays)}catch(e){msgs.push("Members were imported, but their opening dues couldn't be saved ("+friendly(e)+") Ask the Treasurer to use Settings → Enter opening balances.")}}
+ if(I.login){const inv=nw.filter(r=>r.email&&idByNo.get(r.memberNo.toLowerCase())).map(r=>({association_id:aid,email:r.email,role:'member',member_id:idByNo.get(r.memberNo.toLowerCase())})).concat(up.filter(r=>r.email||r.existing.email).map(r=>({association_id:aid,email:(r.email||r.existing.email).toLowerCase(),role:'member',member_id:r.existing.id})));
+  if(inv.length){const{error}=await sb.from('invites').upsert(inv,{onConflict:'association_id,email,role',ignoreDuplicates:true});if(error)msgs.push("Login invitations couldn't be saved: "+friendly(error))}}
+ await log(`Imported members from ${I.file}: ${added.length} added, ${upd_n} updated${pays.length?', opening dues '+money(sum(pays,p=>p.amount)):''}`);
+ if(msgs.length){try{await reload()}catch(e){}render();return msgs.join(' ')}
+ toast(`${added.length} member(s) added${upd_n?', '+upd_n+' updated':''}`)}
+function downloadTemplate(){const cats=T().categories.map(c=>c.name);
+ const rows=[['Member No','Full Name','Phone','Email','Category','Date Joined (DD/MM/YYYY)','Next of Kin','Next of Kin Phone','Dues Paid Before','Notes'],
+  ['',`Example: Kwame Mensah`,'0241234567','kwame@example.com',cats[0]||'','01/09/2025','Ama Mensah','0201234567','420','Delete these example rows'],
+  ['',`Example: Akosua Owusu`,'0551234567','',cats[1]||cats[0]||'','15/01/2026','','','150','']];
+ const csv='﻿'+rows.map(r=>r.map(v=>/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v).join(',')).join('\r\n');
+ saveFile(new Blob([csv],{type:'text/csv'}),'members-import-template.csv')}
+function downloadMembers(){const t=T();const rows=[['Member No','Full Name','Phone','Email','Category','Date Joined','Status','Next of Kin','Next of Kin Phone','Dues Paid','Arrears','Benefits Received','Notes']].concat(
+  t.members.slice().sort((a,b)=>a.memberNo.localeCompare(b.memberNo,undefined,{numeric:true})).map(m=>{const d=duesInfo(m);return[m.memberNo,m.name,m.phone,m.email,cat(m).name,fd(m.joinDate),m.status,m.nok,m.nokPhone,d.paid,d.arrears,benefitsReceived(m),m.notes]}));
+ const csv='﻿'+rows.map(r=>r.map(v=>{v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(',')).join('\r\n');
+ saveFile(new Blob([csv],{type:'text/csv'}),`${(S().shortCode||'members').replace(/\W+/g,'')}-members-${iso(TODAY)}.csv`)}
+function saveFile(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+
 function memberForm(id){const t=T(),m=id?mem(id):null;const pre=(S().shortCode||'MEM').replace(/A$/,'');const nextNo=pre+'-'+String(t.members.length+1).padStart(3,'0');
  modal(m?'Edit member':'Add member',`<div class="grid2"><label class="f">Full name<input name="name" required value="${esc(m?.name)}"></label><label class="f">Member number<input name="memberNo" required value="${esc(m?.memberNo||nextNo)}"></label>
  <label class="f">Phone<input name="phone" value="${esc(m?.phone)}"></label><label class="f">Email<input name="email" type="email" value="${esc(m?.email)}"></label>
- <label class="f">Category<select name="categoryId">${t.categories.map(c=>opt(c.id,c.name+' — '+money(c.dues)+'/month',m?.categoryId)).join('')}</select></label><label class="f">Date joined (dues start)<input name="joinDate" type="date" required value="${m?.joinDate||iso(TODAY)}"></label>
+ <label class="f">Category<select name="categoryId">${t.categories.map(c=>opt(c.id,c.name+' — '+money(c.dues)+'/month',m?m.categoryId:defaultCatId())).join('')}</select></label><label class="f">Date joined (dues start)<input name="joinDate" type="date" required value="${m?.joinDate||iso(TODAY)}"></label>
  <label class="f">Next of kin<input name="nok" value="${esc(m?.nok)}"></label><label class="f">Next of kin phone<input name="nokPhone" value="${esc(m?.nokPhone)}"></label>
  ${m?`<label class="f">Status<select name="status">${['active','resigned','retired','deceased','exited'].map(s=>opt(s,s[0].toUpperCase()+s.slice(1),m.status)).join('')}</select></label><label class="f">Exit date (if not active)<input name="exitDate" type="date" value="${m.exitDate||''}"></label>`:''}</div>
  <label class="f">Notes<textarea name="notes" rows="2">${esc(m?.notes)}</textarea></label>${!m&&num(S().regFee)>0?`<label class="small" style="display:block"><input type="checkbox" name="reg"> Record registration fee of ${money(S().regFee)} paid today</label>`:''}
